@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
-import { Avatar, AvatarFallback, AvatarInitials } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Textarea } from '@/components/ui/textarea'
@@ -27,44 +27,94 @@ import {
   Trash2, 
   Eye,
   School,
-  ChevronDown,
   Menu,
   X,
   LogOut,
   Home,
   BarChart3,
-  FileText,
-  Clock
+  Building2,
+  Crown,
+  Upload,
+  UserPlus,
+  Users2,
+  Shield
 } from 'lucide-react'
 
 function App() {
   // Core state
   const [user, setUser] = useState(null)
+  const [school, setSchool] = useState(null)
   const [token, setToken] = useState(null)
   const [loading, setLoading] = useState(true)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   
   // Auth state
-  const [authMode, setAuthMode] = useState('login')
   const [authData, setAuthData] = useState({
-    name: '',
     email: '',
-    password: '',
-    role: 'parent',
-    phoneNumber: ''
+    password: ''
   })
   
   // Dashboard data
   const [stats, setStats] = useState({})
   const [students, setStudents] = useState([])
   const [teachers, setTeachers] = useState([])
+  const [parents, setParents] = useState([])
   const [classes, setClasses] = useState([])
   const [subjects, setSubjects] = useState([])
   const [assignments, setAssignments] = useState([])
   const [attendance, setAttendance] = useState([])
   const [notifications, setNotifications] = useState([])
+  const [schools, setSchools] = useState([])
+  
+  // School settings state
+  const [schoolSettings, setSchoolSettings] = useState({
+    schoolName: '',
+    logo: '',
+    primaryColor: '#3b82f6',
+    secondaryColor: '#64748b',
+    address: '',
+    phoneNumber: '',
+    email: ''
+  })
   
   // Form states
+  const [masterSchoolForm, setMasterSchoolForm] = useState({
+    schoolName: '',
+    adminName: '',
+    adminEmail: '',
+    adminPassword: ''
+  })
+  
+  const [teacherForm, setTeacherForm] = useState({
+    teacherData: {
+      firstName: '',
+      lastName: '',
+      email: '',
+      phoneNumber: '',
+      address: '',
+      qualification: '',
+      experience: '',
+      specialization: '',
+      dateOfJoining: ''
+    },
+    credentials: {
+      email: '',
+      password: ''
+    }
+  })
+  
+  const [parentForm, setParentForm] = useState({
+    parentData: {
+      name: '',
+      phoneNumber: '',
+      address: ''
+    },
+    parentCredentials: {
+      email: '',
+      password: ''
+    }
+  })
+  
   const [studentForm, setStudentForm] = useState({
     firstName: '',
     lastName: '',
@@ -77,18 +127,6 @@ function App() {
     classId: '',
     admissionNumber: '',
     emergencyContact: ''
-  })
-  
-  const [teacherForm, setTeacherForm] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phoneNumber: '',
-    address: '',
-    qualification: '',
-    experience: '',
-    specialization: '',
-    dateOfJoining: ''
   })
   
   const [classForm, setClassForm] = useState({
@@ -118,22 +156,29 @@ function App() {
   const [attendanceList, setAttendanceList] = useState([])
   
   // Modal states
+  const [showMasterSchoolModal, setShowMasterSchoolModal] = useState(false)
   const [showStudentModal, setShowStudentModal] = useState(false)
   const [showTeacherModal, setShowTeacherModal] = useState(false)
+  const [showParentModal, setShowParentModal] = useState(false)
   const [showClassModal, setShowClassModal] = useState(false)
   const [showSubjectModal, setShowSubjectModal] = useState(false)
   const [showAssignmentModal, setShowAssignmentModal] = useState(false)
   const [showAttendanceModal, setShowAttendanceModal] = useState(false)
+  const [showSettingsModal, setShowSettingsModal] = useState(false)
   const [editingItem, setEditingItem] = useState(null)
   
   // Check authentication on load
   useEffect(() => {
     const savedToken = localStorage.getItem('token')
     const savedUser = localStorage.getItem('user')
+    const savedSchool = localStorage.getItem('school')
     
     if (savedToken && savedUser) {
       setToken(savedToken)
       setUser(JSON.parse(savedUser))
+      if (savedSchool) {
+        setSchool(JSON.parse(savedSchool))
+      }
     }
     setLoading(false)
   }, [])
@@ -143,6 +188,9 @@ function App() {
     if (user && token) {
       loadDashboardData()
       loadNotifications()
+      if (user.role === 'school_admin') {
+        loadSchoolSettings()
+      }
     }
   }, [user, token])
   
@@ -175,18 +223,21 @@ function App() {
   const handleAuth = async (e) => {
     e.preventDefault()
     try {
-      const endpoint = authMode === 'login' ? 'auth/login' : 'auth/register'
-      const result = await apiCall(endpoint, {
+      const result = await apiCall('auth/login', {
         method: 'POST',
         body: JSON.stringify(authData)
       })
       
       setToken(result.token)
       setUser(result.user)
+      setSchool(result.school)
       localStorage.setItem('token', result.token)
       localStorage.setItem('user', JSON.stringify(result.user))
+      if (result.school) {
+        localStorage.setItem('school', JSON.stringify(result.school))
+      }
       
-      toast.success(`${authMode === 'login' ? 'Logged in' : 'Registered'} successfully!`)
+      toast.success('Logged in successfully!')
     } catch (error) {
       // Error already handled in apiCall
     }
@@ -194,9 +245,11 @@ function App() {
   
   const handleLogout = () => {
     setUser(null)
+    setSchool(null)
     setToken(null)
     localStorage.removeItem('token')
     localStorage.removeItem('user')
+    localStorage.removeItem('school')
     toast.success('Logged out successfully')
   }
   
@@ -205,21 +258,26 @@ function App() {
     try {
       const [statsData, classesData, subjectsData] = await Promise.all([
         apiCall('dashboard/stats'),
-        apiCall('classes'),
-        apiCall('subjects')
+        user.role !== 'developer' ? apiCall('classes') : Promise.resolve([]),
+        user.role !== 'developer' ? apiCall('subjects') : Promise.resolve([])
       ])
       
       setStats(statsData)
       setClasses(classesData)
       setSubjects(subjectsData)
       
-      if (user.role === 'admin') {
-        const [studentsData, teachersData] = await Promise.all([
+      if (user.role === 'developer') {
+        const schoolsData = await apiCall('master/schools')
+        setSchools(schoolsData)
+      } else if (user.role === 'school_admin') {
+        const [studentsData, teachersData, parentsData] = await Promise.all([
           apiCall('students'),
-          apiCall('teachers')
+          apiCall('teachers'),
+          apiCall('parents')
         ])
         setStudents(studentsData)
         setTeachers(teachersData)
+        setParents(parentsData)
       } else if (user.role === 'teacher') {
         const assignmentsData = await apiCall('teacher-assignments')
         setAssignments(assignmentsData)
@@ -227,6 +285,23 @@ function App() {
         const childrenData = await apiCall('parent/students')
         setStudents(childrenData)
       }
+    } catch (error) {
+      // Error already handled in apiCall
+    }
+  }
+  
+  const loadSchoolSettings = async () => {
+    try {
+      const settings = await apiCall('school/settings')
+      setSchoolSettings({
+        schoolName: settings.schoolName || school?.name || '',
+        logo: settings.logo || '',
+        primaryColor: settings.primaryColor || '#3b82f6',
+        secondaryColor: settings.secondaryColor || '#64748b',
+        address: settings.address || '',
+        phoneNumber: settings.phoneNumber || '',
+        email: settings.email || ''
+      })
     } catch (error) {
       // Error already handled in apiCall
     }
@@ -241,7 +316,113 @@ function App() {
     }
   }
   
-  // CRUD functions
+  // Master/Developer functions
+  const handleCreateSchool = async (e) => {
+    e.preventDefault()
+    try {
+      await apiCall('master/schools', {
+        method: 'POST',
+        body: JSON.stringify(masterSchoolForm)
+      })
+      
+      toast.success('School created successfully!')
+      setShowMasterSchoolModal(false)
+      setMasterSchoolForm({
+        schoolName: '',
+        adminName: '',
+        adminEmail: '',
+        adminPassword: ''
+      })
+      loadDashboardData()
+    } catch (error) {
+      // Error already handled in apiCall
+    }
+  }
+  
+  // School settings functions
+  const handleSaveSettings = async (e) => {
+    e.preventDefault()
+    try {
+      await apiCall('school/settings', {
+        method: 'POST',
+        body: JSON.stringify(schoolSettings)
+      })
+      
+      toast.success('Settings saved successfully!')
+      setShowSettingsModal(false)
+      
+      // Update local school data if name changed
+      if (school && schoolSettings.schoolName !== school.name) {
+        const updatedSchool = { ...school, name: schoolSettings.schoolName }
+        setSchool(updatedSchool)
+        localStorage.setItem('school', JSON.stringify(updatedSchool))
+      }
+    } catch (error) {
+      // Error already handled in apiCall
+    }
+  }
+  
+  // CRUD functions - Updated for new multi-tenant structure
+  const handleCreateTeacher = async (e) => {
+    e.preventDefault()
+    try {
+      const result = await apiCall('teachers', {
+        method: 'POST',
+        body: JSON.stringify(teacherForm)
+      })
+      
+      toast.success(`Teacher created successfully! Login: ${result.credentials.email} / ${result.credentials.tempPassword}`)
+      setShowTeacherModal(false)
+      setTeacherForm({
+        teacherData: {
+          firstName: '',
+          lastName: '',
+          email: '',
+          phoneNumber: '',
+          address: '',
+          qualification: '',
+          experience: '',
+          specialization: '',
+          dateOfJoining: ''
+        },
+        credentials: {
+          email: '',
+          password: ''
+        }
+      })
+      loadDashboardData()
+    } catch (error) {
+      // Error already handled in apiCall
+    }
+  }
+  
+  const handleCreateParent = async (e) => {
+    e.preventDefault()
+    try {
+      const result = await apiCall('parents', {
+        method: 'POST',
+        body: JSON.stringify(parentForm)
+      })
+      
+      toast.success(`Parent account created successfully! Login: ${result.credentials.email} / ${result.credentials.tempPassword}`)
+      setShowParentModal(false)
+      setParentForm({
+        parentData: {
+          name: '',
+          phoneNumber: '',
+          address: ''
+        },
+        parentCredentials: {
+          email: '',
+          password: ''
+        }
+      })
+      loadDashboardData()
+    } catch (error) {
+      // Error already handled in apiCall
+    }
+  }
+  
   const handleCreateStudent = async (e) => {
     e.preventDefault()
     try {
@@ -264,33 +445,6 @@ function App() {
         classId: '',
         admissionNumber: '',
         emergencyContact: ''
-      })
-      loadDashboardData()
-    } catch (error) {
-      // Error already handled in apiCall
-    }
-  }
-  
-  const handleCreateTeacher = async (e) => {
-    e.preventDefault()
-    try {
-      await apiCall('teachers', {
-        method: 'POST',
-        body: JSON.stringify(teacherForm)
-      })
-      
-      toast.success('Teacher created successfully!')
-      setShowTeacherModal(false)
-      setTeacherForm({
-        firstName: '',
-        lastName: '',
-        email: '',
-        phoneNumber: '',
-        address: '',
-        qualification: '',
-        experience: '',
-        specialization: '',
-        dateOfJoining: ''
       })
       loadDashboardData()
     } catch (error) {
@@ -439,15 +593,23 @@ function App() {
       { id: 'notifications', label: 'Notifications', icon: Bell }
     ]
     
-    if (user?.role === 'admin') {
+    if (user?.role === 'developer') {
+      return [
+        ...baseItems,
+        { id: 'schools', label: 'Schools', icon: Building2 },
+        { id: 'master-settings', label: 'Master Settings', icon: Settings }
+      ]
+    } else if (user?.role === 'school_admin') {
       return [
         ...baseItems,
         { id: 'students', label: 'Students', icon: Users },
         { id: 'teachers', label: 'Teachers', icon: UserCheck },
+        { id: 'parents', label: 'Parents', icon: Users2 },
         { id: 'classes', label: 'Classes', icon: School },
         { id: 'subjects', label: 'Subjects', icon: BookOpen },
         { id: 'assignments', label: 'Assignments', icon: GraduationCap },
-        { id: 'attendance', label: 'Attendance', icon: Calendar }
+        { id: 'attendance', label: 'Attendance', icon: Calendar },
+        { id: 'school-settings', label: 'School Settings', icon: Settings }
       ]
     } else if (user?.role === 'teacher') {
       return [
@@ -491,99 +653,40 @@ function App() {
             <CardDescription>School Management System</CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs value={authMode} onValueChange={setAuthMode}>
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="login">Login</TabsTrigger>
-                <TabsTrigger value="register">Register</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="login">
-                <form onSubmit={handleAuth} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={authData.email}
-                      onChange={(e) => setAuthData(prev => ({ ...prev, email: e.target.value }))}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="password">Password</Label>
-                    <Input
-                      id="password"
-                      type="password"
-                      value={authData.password}
-                      onChange={(e) => setAuthData(prev => ({ ...prev, password: e.target.value }))}
-                      required
-                    />
-                  </div>
-                  <Button type="submit" className="w-full">
-                    Login
-                  </Button>
-                </form>
-              </TabsContent>
-              
-              <TabsContent value="register">
-                <form onSubmit={handleAuth} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Full Name</Label>
-                    <Input
-                      id="name"
-                      value={authData.name}
-                      onChange={(e) => setAuthData(prev => ({ ...prev, name: e.target.value }))}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={authData.email}
-                      onChange={(e) => setAuthData(prev => ({ ...prev, email: e.target.value }))}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">Phone Number</Label>
-                    <Input
-                      id="phone"
-                      value={authData.phoneNumber}
-                      onChange={(e) => setAuthData(prev => ({ ...prev, phoneNumber: e.target.value }))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="role">Role</Label>
-                    <Select value={authData.role} onValueChange={(value) => setAuthData(prev => ({ ...prev, role: value }))}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="admin">Admin</SelectItem>
-                        <SelectItem value="teacher">Teacher</SelectItem>
-                        <SelectItem value="parent">Parent</SelectItem>
-                        <SelectItem value="student">Student</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="password">Password</Label>
-                    <Input
-                      id="password"
-                      type="password"
-                      value={authData.password}
-                      onChange={(e) => setAuthData(prev => ({ ...prev, password: e.target.value }))}
-                      required
-                    />
-                  </div>
-                  <Button type="submit" className="w-full">
-                    Register
-                  </Button>
-                </form>
-              </TabsContent>
-            </Tabs>
+            <form onSubmit={handleAuth} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={authData.email}
+                  onChange={(e) => setAuthData(prev => ({ ...prev, email: e.target.value }))}
+                  placeholder="Enter your email"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={authData.password}
+                  onChange={(e) => setAuthData(prev => ({ ...prev, password: e.target.value }))}
+                  placeholder="Enter your password"
+                  required
+                />
+              </div>
+              <Button type="submit" className="w-full">
+                Login
+              </Button>
+            </form>
+            
+            {/* Demo credentials helper */}
+            <div className="mt-6 p-3 bg-gray-50 rounded-lg text-xs">
+              <p className="font-medium text-gray-700 mb-2">Demo Credentials:</p>
+              <p><strong>Developer:</strong> dev@system.com / dev123</p>
+              <p><strong>School Admin:</strong> admin@school.com / admin123</p>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -591,7 +694,7 @@ function App() {
   }
   
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex">
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
         <div 
@@ -600,22 +703,41 @@ function App() {
         />
       )}
       
-      {/* Sidebar */}
-      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="flex items-center justify-between h-16 px-6 border-b">
+      {/* Sidebar - Fixed responsive positioning */}
+      <div className={`
+        fixed lg:static inset-y-0 left-0 z-50 
+        w-64 bg-white shadow-lg border-r border-gray-200
+        transform transition-transform duration-300 ease-in-out 
+        lg:translate-x-0 lg:block
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+      `}>
+        {/* Sidebar Header */}
+        <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200">
           <div className="flex items-center">
-            <School className="h-8 w-8 text-blue-600 mr-3" />
-            <span className="text-xl font-bold text-gray-900">EduManage</span>
+            {school?.logo ? (
+              <img src={school.logo} alt="School Logo" className="h-8 w-8 mr-3 rounded" />
+            ) : (
+              <School className="h-8 w-8 text-blue-600 mr-3" />
+            )}
+            <div>
+              <span className="text-lg font-bold text-gray-900 block leading-tight">
+                {school?.name || 'EduManage'}
+              </span>
+              {user.role === 'developer' && (
+                <span className="text-xs text-blue-600 font-medium">Master System</span>
+              )}
+            </div>
           </div>
           <button
             onClick={() => setSidebarOpen(false)}
-            className="lg:hidden text-gray-400 hover:text-gray-600"
+            className="lg:hidden text-gray-400 hover:text-gray-600 p-1"
           >
-            <X className="h-6 w-6" />
+            <X className="h-5 w-5" />
           </button>
         </div>
         
-        <nav className="mt-6">
+        {/* Navigation */}
+        <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
           {getNavigationItems().map((item) => {
             const Icon = item.icon
             return (
@@ -625,16 +747,16 @@ function App() {
                   setActiveTab(item.id)
                   setSidebarOpen(false)
                 }}
-                className={`w-full flex items-center px-6 py-3 text-left text-sm font-medium transition-colors ${
+                className={`w-full flex items-center px-3 py-2.5 text-left text-sm font-medium rounded-lg transition-all duration-200 ${
                   activeTab === item.id
-                    ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-700'
+                    ? 'bg-blue-50 text-blue-700 border-l-4 border-blue-700 shadow-sm'
                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                 }`}
               >
-                <Icon className="h-5 w-5 mr-3" />
-                {item.label}
+                <Icon className="h-5 w-5 mr-3 flex-shrink-0" />
+                <span className="flex-1">{item.label}</span>
                 {item.id === 'notifications' && notifications.filter(n => !n.read).length > 0 && (
-                  <Badge variant="destructive" className="ml-auto text-xs">
+                  <Badge variant="destructive" className="ml-2 text-xs px-1.5 py-0.5">
                     {notifications.filter(n => !n.read).length}
                   </Badge>
                 )}
@@ -643,22 +765,31 @@ function App() {
           })}
         </nav>
         
-        <div className="absolute bottom-0 w-full p-6 border-t">
-          <div className="flex items-center mb-4">
+        {/* User Profile Section */}
+        <div className="border-t border-gray-200 p-4">
+          <div className="flex items-center mb-3">
             <Avatar className="h-10 w-10 mr-3">
-              <AvatarFallback className="bg-blue-100 text-blue-700">
+              <AvatarFallback className="bg-blue-100 text-blue-700 font-medium">
                 {user.name.charAt(0)}
               </AvatarFallback>
             </Avatar>
-            <div>
-              <p className="text-sm font-medium text-gray-900">{user.name}</p>
-              <p className="text-xs text-gray-500 capitalize">{user.role}</p>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-gray-900 truncate">{user.name}</p>
+              <div className="flex items-center space-x-1">
+                <Badge variant="secondary" className="text-xs capitalize">
+                  {user.role === 'school_admin' ? 'Admin' : user.role}
+                </Badge>
+                {user.role === 'developer' && (
+                  <Crown className="h-3 w-3 text-yellow-500" />
+                )}
+              </div>
             </div>
           </div>
           <Button
             onClick={handleLogout}
             variant="outline"
-            className="w-full"
+            size="sm"
+            className="w-full justify-start"
           >
             <LogOut className="h-4 w-4 mr-2" />
             Logout
@@ -666,38 +797,86 @@ function App() {
         </div>
       </div>
       
-      {/* Main content */}
-      <div className="lg:ml-64">
+      {/* Main content area */}
+      <div className="flex-1 flex flex-col min-w-0">
         {/* Top bar */}
-        <div className="bg-white shadow-sm border-b h-16 flex items-center justify-between px-6">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="lg:hidden text-gray-400 hover:text-gray-600"
-          >
-            <Menu className="h-6 w-6" />
-          </button>
-          
-          <div className="flex items-center space-x-4">
-            <h1 className="text-lg font-semibold text-gray-900 capitalize">
-              {activeTab.replace('-', ' ')}
-            </h1>
+        <div className="bg-white shadow-sm border-b border-gray-200 h-16 flex items-center justify-between px-4 lg:px-6">
+          <div className="flex items-center">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="lg:hidden text-gray-400 hover:text-gray-600 mr-4 p-2"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+            
+            <div className="flex items-center space-x-3">
+              <h1 className="text-lg font-semibold text-gray-900 capitalize">
+                {activeTab.replace('-', ' ')}
+              </h1>
+              {user.role !== 'developer' && school && (
+                <Badge variant="outline" className="text-xs">
+                  {school.name}
+                </Badge>
+              )}
+            </div>
           </div>
           
-          <div className="flex items-center space-x-4">
-            <Badge variant="secondary" className="capitalize">
-              {user.role}
-            </Badge>
+          <div className="flex items-center space-x-3">
+            {user.role === 'school_admin' && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowSettingsModal(true)}
+              >
+                <Settings className="h-4 w-4 mr-2" />
+                Settings
+              </Button>
+            )}
           </div>
         </div>
         
-        {/* Content area */}
-        <div className="p-6">
+        {/* Content area - with proper scrolling */}
+        <div className="flex-1 overflow-auto p-4 lg:p-6">
           {/* Dashboard */}
           {activeTab === 'dashboard' && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              {user.role === 'admin' && (
+              {user.role === 'developer' && (
                 <>
-                  <Card>
+                  <Card className="hover:shadow-md transition-shadow">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Total Schools</CardTitle>
+                      <Building2 className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{stats.totalSchools || 0}</div>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card className="hover:shadow-md transition-shadow">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Active Schools</CardTitle>
+                      <Shield className="h-4 w-4 text-green-600" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{stats.activeSchools || 0}</div>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card className="hover:shadow-md transition-shadow">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+                      <Users className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{stats.totalUsers || 0}</div>
+                    </CardContent>
+                  </Card>
+                </>
+              )}
+              
+              {user.role === 'school_admin' && (
+                <>
+                  <Card className="hover:shadow-md transition-shadow">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                       <CardTitle className="text-sm font-medium">Total Students</CardTitle>
                       <Users className="h-4 w-4 text-muted-foreground" />
@@ -707,7 +886,7 @@ function App() {
                     </CardContent>
                   </Card>
                   
-                  <Card>
+                  <Card className="hover:shadow-md transition-shadow">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                       <CardTitle className="text-sm font-medium">Total Teachers</CardTitle>
                       <UserCheck className="h-4 w-4 text-muted-foreground" />
@@ -717,7 +896,17 @@ function App() {
                     </CardContent>
                   </Card>
                   
-                  <Card>
+                  <Card className="hover:shadow-md transition-shadow">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Total Parents</CardTitle>
+                      <Users2 className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{stats.totalParents || 0}</div>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card className="hover:shadow-md transition-shadow">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                       <CardTitle className="text-sm font-medium">Total Classes</CardTitle>
                       <School className="h-4 w-4 text-muted-foreground" />
@@ -726,22 +915,12 @@ function App() {
                       <div className="text-2xl font-bold">{stats.totalClasses || 0}</div>
                     </CardContent>
                   </Card>
-                  
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Total Subjects</CardTitle>
-                      <BookOpen className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">{stats.totalSubjects || 0}</div>
-                    </CardContent>
-                  </Card>
                 </>
               )}
               
               {user.role === 'teacher' && (
                 <>
-                  <Card>
+                  <Card className="hover:shadow-md transition-shadow">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                       <CardTitle className="text-sm font-medium">My Assignments</CardTitle>
                       <BookOpen className="h-4 w-4 text-muted-foreground" />
@@ -751,7 +930,7 @@ function App() {
                     </CardContent>
                   </Card>
                   
-                  <Card>
+                  <Card className="hover:shadow-md transition-shadow">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                       <CardTitle className="text-sm font-medium">My Classes</CardTitle>
                       <School className="h-4 w-4 text-muted-foreground" />
@@ -761,7 +940,7 @@ function App() {
                     </CardContent>
                   </Card>
                   
-                  <Card>
+                  <Card className="hover:shadow-md transition-shadow">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                       <CardTitle className="text-sm font-medium">Students in My Classes</CardTitle>
                       <Users className="h-4 w-4 text-muted-foreground" />
@@ -774,7 +953,7 @@ function App() {
               )}
               
               {user.role === 'parent' && (
-                <Card>
+                <Card className="hover:shadow-md transition-shadow">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">My Children</CardTitle>
                     <Users className="h-4 w-4 text-muted-foreground" />
@@ -787,280 +966,337 @@ function App() {
             </div>
           )}
           
-          {/* Students Management (Admin) */}
-          {activeTab === 'students' && user.role === 'admin' && (
+          {/* Master/Developer Schools Management */}
+          {activeTab === 'schools' && user.role === 'developer' && (
             <div>
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">Students Management</h2>
-                <Dialog open={showStudentModal} onOpenChange={setShowStudentModal}>
+                <h2 className="text-2xl font-bold text-gray-900">Schools Management</h2>
+                <Dialog open={showMasterSchoolModal} onOpenChange={setShowMasterSchoolModal}>
                   <DialogTrigger asChild>
                     <Button>
                       <Plus className="h-4 w-4 mr-2" />
-                      Add Student
+                      Create School
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-2xl">
+                  <DialogContent>
                     <DialogHeader>
-                      <DialogTitle>Add New Student</DialogTitle>
+                      <DialogTitle>Create New School</DialogTitle>
                       <DialogDescription>
-                        Fill in the student information below.
+                        Set up a new school with admin credentials.
                       </DialogDescription>
                     </DialogHeader>
-                    <form onSubmit={handleCreateStudent}>
-                      <div className="grid grid-cols-2 gap-4 py-4">
+                    <form onSubmit={handleCreateSchool}>
+                      <div className="grid gap-4 py-4">
                         <div className="space-y-2">
-                          <Label htmlFor="firstName">First Name</Label>
+                          <Label htmlFor="schoolName">School Name</Label>
                           <Input
-                            id="firstName"
-                            value={studentForm.firstName}
-                            onChange={(e) => setStudentForm(prev => ({ ...prev, firstName: e.target.value }))}
+                            id="schoolName"
+                            value={masterSchoolForm.schoolName}
+                            onChange={(e) => setMasterSchoolForm(prev => ({ ...prev, schoolName: e.target.value }))}
+                            placeholder="Enter school name"
                             required
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="lastName">Last Name</Label>
+                          <Label htmlFor="adminName">Admin Name</Label>
                           <Input
-                            id="lastName"
-                            value={studentForm.lastName}
-                            onChange={(e) => setStudentForm(prev => ({ ...prev, lastName: e.target.value }))}
+                            id="adminName"
+                            value={masterSchoolForm.adminName}
+                            onChange={(e) => setMasterSchoolForm(prev => ({ ...prev, adminName: e.target.value }))}
+                            placeholder="Enter admin full name"
                             required
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="email">Email</Label>
+                          <Label htmlFor="adminEmail">Admin Email</Label>
                           <Input
-                            id="email"
+                            id="adminEmail"
                             type="email"
-                            value={studentForm.email}
-                            onChange={(e) => setStudentForm(prev => ({ ...prev, email: e.target.value }))}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="dateOfBirth">Date of Birth</Label>
-                          <Input
-                            id="dateOfBirth"
-                            type="date"
-                            value={studentForm.dateOfBirth}
-                            onChange={(e) => setStudentForm(prev => ({ ...prev, dateOfBirth: e.target.value }))}
+                            value={masterSchoolForm.adminEmail}
+                            onChange={(e) => setMasterSchoolForm(prev => ({ ...prev, adminEmail: e.target.value }))}
+                            placeholder="Enter admin email"
                             required
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="gender">Gender</Label>
-                          <Select value={studentForm.gender} onValueChange={(value) => setStudentForm(prev => ({ ...prev, gender: value }))}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select gender" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="male">Male</SelectItem>
-                              <SelectItem value="female">Female</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="phoneNumber">Phone Number</Label>
+                          <Label htmlFor="adminPassword">Admin Password</Label>
                           <Input
-                            id="phoneNumber"
-                            value={studentForm.phoneNumber}
-                            onChange={(e) => setStudentForm(prev => ({ ...prev, phoneNumber: e.target.value }))}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="classId">Class</Label>
-                          <Select value={studentForm.classId} onValueChange={(value) => setStudentForm(prev => ({ ...prev, classId: value }))}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select class" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {classes.map(cls => (
-                                <SelectItem key={cls.id} value={cls.id}>{cls.name}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="admissionNumber">Admission Number</Label>
-                          <Input
-                            id="admissionNumber"
-                            value={studentForm.admissionNumber}
-                            onChange={(e) => setStudentForm(prev => ({ ...prev, admissionNumber: e.target.value }))}
+                            id="adminPassword"
+                            type="password"
+                            value={masterSchoolForm.adminPassword}
+                            onChange={(e) => setMasterSchoolForm(prev => ({ ...prev, adminPassword: e.target.value }))}
+                            placeholder="Enter admin password"
                             required
-                          />
-                        </div>
-                        <div className="col-span-2 space-y-2">
-                          <Label htmlFor="address">Address</Label>
-                          <Textarea
-                            id="address"
-                            value={studentForm.address}
-                            onChange={(e) => setStudentForm(prev => ({ ...prev, address: e.target.value }))}
-                          />
-                        </div>
-                        <div className="col-span-2 space-y-2">
-                          <Label htmlFor="emergencyContact">Emergency Contact</Label>
-                          <Input
-                            id="emergencyContact"
-                            value={studentForm.emergencyContact}
-                            onChange={(e) => setStudentForm(prev => ({ ...prev, emergencyContact: e.target.value }))}
                           />
                         </div>
                       </div>
                       <DialogFooter>
-                        <Button type="submit">Create Student</Button>
+                        <Button type="submit">Create School</Button>
                       </DialogFooter>
                     </form>
                   </DialogContent>
                 </Dialog>
               </div>
               
-              <Card>
-                <CardContent className="p-0">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Admission No.</TableHead>
-                        <TableHead>Class</TableHead>
-                        <TableHead>Email</TableHead>
-                        <TableHead>Phone</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {students.map((student) => (
-                        <TableRow key={student.id}>
-                          <TableCell>{student.firstName} {student.lastName}</TableCell>
-                          <TableCell>{student.admissionNumber}</TableCell>
-                          <TableCell>
-                            <Badge variant="secondary">
-                              {classes.find(c => c.id === student.classId)?.name || 'N/A'}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>{student.email || 'N/A'}</TableCell>
-                          <TableCell>{student.phoneNumber || 'N/A'}</TableCell>
-                          <TableCell>
-                            <div className="flex space-x-2">
-                              <Button size="sm" variant="outline">
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                              <Button size="sm" variant="outline">
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {schools.map((school) => (
+                  <Card key={school.id} className="hover:shadow-md transition-shadow">
+                    <CardHeader>
+                      <CardTitle className="flex items-center justify-between">
+                        {school.name}
+                        <Badge variant={school.active ? "default" : "secondary"}>
+                          {school.active ? 'Active' : 'Inactive'}
+                        </Badge>
+                      </CardTitle>
+                      <CardDescription>
+                        Created: {new Date(school.createdAt).toLocaleDateString()}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">Admin ID:</span>
+                          <span className="font-mono text-xs">{school.adminId}</span>
+                        </div>
+                      </div>
+                      <div className="mt-4 flex space-x-2">
+                        <Button size="sm" variant="outline">
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button size="sm" variant="outline">
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             </div>
           )}
           
-          {/* Teachers Management (Admin) */}
-          {activeTab === 'teachers' && user.role === 'admin' && (
+          {/* School Settings Modal */}
+          <Dialog open={showSettingsModal} onOpenChange={setShowSettingsModal}>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>School Settings</DialogTitle>
+                <DialogDescription>
+                  Configure your school's information and appearance.
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleSaveSettings}>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="schoolName">School Name</Label>
+                      <Input
+                        id="schoolName"
+                        value={schoolSettings.schoolName}
+                        onChange={(e) => setSchoolSettings(prev => ({ ...prev, schoolName: e.target.value }))}
+                        placeholder="Enter school name"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="schoolEmail">School Email</Label>
+                      <Input
+                        id="schoolEmail"
+                        type="email"
+                        value={schoolSettings.email}
+                        onChange={(e) => setSchoolSettings(prev => ({ ...prev, email: e.target.value }))}
+                        placeholder="Enter school email"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="phoneNumber">Phone Number</Label>
+                    <Input
+                      id="phoneNumber"
+                      value={schoolSettings.phoneNumber}
+                      onChange={(e) => setSchoolSettings(prev => ({ ...prev, phoneNumber: e.target.value }))}
+                      placeholder="Enter school phone number"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="address">Address</Label>
+                    <Textarea
+                      id="address"
+                      value={schoolSettings.address}
+                      onChange={(e) => setSchoolSettings(prev => ({ ...prev, address: e.target.value }))}
+                      placeholder="Enter school address"
+                      rows={3}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="logo">Logo URL</Label>
+                    <div className="flex space-x-2">
+                      <Input
+                        id="logo"
+                        value={schoolSettings.logo}
+                        onChange={(e) => setSchoolSettings(prev => ({ ...prev, logo: e.target.value }))}
+                        placeholder="Enter logo URL"
+                      />
+                      <Button type="button" variant="outline">
+                        <Upload className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="primaryColor">Primary Color</Label>
+                      <Input
+                        id="primaryColor"
+                        type="color"
+                        value={schoolSettings.primaryColor}
+                        onChange={(e) => setSchoolSettings(prev => ({ ...prev, primaryColor: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="secondaryColor">Secondary Color</Label>
+                      <Input
+                        id="secondaryColor"
+                        type="color"
+                        value={schoolSettings.secondaryColor}
+                        onChange={(e) => setSchoolSettings(prev => ({ ...prev, secondaryColor: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button type="submit">Save Settings</Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+          
+          {/* Teachers Management (School Admin) */}
+          {activeTab === 'teachers' && user.role === 'school_admin' && (
             <div>
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-gray-900">Teachers Management</h2>
                 <Dialog open={showTeacherModal} onOpenChange={setShowTeacherModal}>
                   <DialogTrigger asChild>
                     <Button>
-                      <Plus className="h-4 w-4 mr-2" />
+                      <UserPlus className="h-4 w-4 mr-2" />
                       Add Teacher
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-2xl">
+                  <DialogContent className="max-w-3xl">
                     <DialogHeader>
-                      <DialogTitle>Add New Teacher</DialogTitle>
+                      <DialogTitle>Create Teacher Account</DialogTitle>
                       <DialogDescription>
-                        Fill in the teacher information below.
+                        Fill in teacher information and create login credentials.
                       </DialogDescription>
                     </DialogHeader>
                     <form onSubmit={handleCreateTeacher}>
-                      <div className="grid grid-cols-2 gap-4 py-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="firstName">First Name</Label>
-                          <Input
-                            id="firstName"
-                            value={teacherForm.firstName}
-                            onChange={(e) => setTeacherForm(prev => ({ ...prev, firstName: e.target.value }))}
-                            required
-                          />
+                      <div className="grid gap-4 py-4 max-h-96 overflow-y-auto">
+                        <div className="space-y-4">
+                          <h3 className="font-medium text-gray-900">Personal Information</h3>
+                          
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="firstName">First Name</Label>
+                              <Input
+                                id="firstName"
+                                value={teacherForm.teacherData.firstName}
+                                onChange={(e) => setTeacherForm(prev => ({ 
+                                  ...prev, 
+                                  teacherData: { ...prev.teacherData, firstName: e.target.value }
+                                }))}
+                                required
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="lastName">Last Name</Label>
+                              <Input
+                                id="lastName"
+                                value={teacherForm.teacherData.lastName}
+                                onChange={(e) => setTeacherForm(prev => ({ 
+                                  ...prev, 
+                                  teacherData: { ...prev.teacherData, lastName: e.target.value }
+                                }))}
+                                required
+                              />
+                            </div>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="teacherPhone">Phone Number</Label>
+                              <Input
+                                id="teacherPhone"
+                                value={teacherForm.teacherData.phoneNumber}
+                                onChange={(e) => setTeacherForm(prev => ({ 
+                                  ...prev, 
+                                  teacherData: { ...prev.teacherData, phoneNumber: e.target.value }
+                                }))}
+                                required
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="qualification">Qualification</Label>
+                              <Input
+                                id="qualification"
+                                value={teacherForm.teacherData.qualification}
+                                onChange={(e) => setTeacherForm(prev => ({ 
+                                  ...prev, 
+                                  teacherData: { ...prev.teacherData, qualification: e.target.value }
+                                }))}
+                                required
+                              />
+                            </div>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <Label htmlFor="teacherAddress">Address</Label>
+                            <Textarea
+                              id="teacherAddress"
+                              value={teacherForm.teacherData.address}
+                              onChange={(e) => setTeacherForm(prev => ({ 
+                                ...prev, 
+                                teacherData: { ...prev.teacherData, address: e.target.value }
+                              }))}
+                            />
+                          </div>
                         </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="lastName">Last Name</Label>
-                          <Input
-                            id="lastName"
-                            value={teacherForm.lastName}
-                            onChange={(e) => setTeacherForm(prev => ({ ...prev, lastName: e.target.value }))}
-                            required
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="email">Email</Label>
-                          <Input
-                            id="email"
-                            type="email"
-                            value={teacherForm.email}
-                            onChange={(e) => setTeacherForm(prev => ({ ...prev, email: e.target.value }))}
-                            required
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="phoneNumber">Phone Number</Label>
-                          <Input
-                            id="phoneNumber"
-                            value={teacherForm.phoneNumber}
-                            onChange={(e) => setTeacherForm(prev => ({ ...prev, phoneNumber: e.target.value }))}
-                            required
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="qualification">Qualification</Label>
-                          <Input
-                            id="qualification"
-                            value={teacherForm.qualification}
-                            onChange={(e) => setTeacherForm(prev => ({ ...prev, qualification: e.target.value }))}
-                            required
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="experience">Experience (Years)</Label>
-                          <Input
-                            id="experience"
-                            type="number"
-                            value={teacherForm.experience}
-                            onChange={(e) => setTeacherForm(prev => ({ ...prev, experience: e.target.value }))}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="specialization">Specialization</Label>
-                          <Input
-                            id="specialization"
-                            value={teacherForm.specialization}
-                            onChange={(e) => setTeacherForm(prev => ({ ...prev, specialization: e.target.value }))}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="dateOfJoining">Date of Joining</Label>
-                          <Input
-                            id="dateOfJoining"
-                            type="date"
-                            value={teacherForm.dateOfJoining}
-                            onChange={(e) => setTeacherForm(prev => ({ ...prev, dateOfJoining: e.target.value }))}
-                            required
-                          />
-                        </div>
-                        <div className="col-span-2 space-y-2">
-                          <Label htmlFor="address">Address</Label>
-                          <Textarea
-                            id="address"
-                            value={teacherForm.address}
-                            onChange={(e) => setTeacherForm(prev => ({ ...prev, address: e.target.value }))}
-                          />
+                        
+                        <div className="border-t pt-4 space-y-4">
+                          <h3 className="font-medium text-gray-900">Login Credentials</h3>
+                          
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="teacherEmail">Email</Label>
+                              <Input
+                                id="teacherEmail"
+                                type="email"
+                                value={teacherForm.credentials.email}
+                                onChange={(e) => setTeacherForm(prev => ({ 
+                                  ...prev, 
+                                  credentials: { ...prev.credentials, email: e.target.value }
+                                }))}
+                                required
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="teacherPassword">Temporary Password</Label>
+                              <Input
+                                id="teacherPassword"
+                                type="password"
+                                value={teacherForm.credentials.password}
+                                onChange={(e) => setTeacherForm(prev => ({ 
+                                  ...prev, 
+                                  credentials: { ...prev.credentials, password: e.target.value }
+                                }))}
+                                required
+                              />
+                            </div>
+                          </div>
                         </div>
                       </div>
                       <DialogFooter>
-                        <Button type="submit">Create Teacher</Button>
+                        <Button type="submit">Create Teacher Account</Button>
                       </DialogFooter>
                     </form>
                   </DialogContent>
@@ -1076,7 +1312,7 @@ function App() {
                         <TableHead>Email</TableHead>
                         <TableHead>Phone</TableHead>
                         <TableHead>Qualification</TableHead>
-                        <TableHead>Experience</TableHead>
+                        <TableHead>Status</TableHead>
                         <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -1087,7 +1323,11 @@ function App() {
                           <TableCell>{teacher.email}</TableCell>
                           <TableCell>{teacher.phoneNumber}</TableCell>
                           <TableCell>{teacher.qualification}</TableCell>
-                          <TableCell>{teacher.experience} years</TableCell>
+                          <TableCell>
+                            <Badge variant={teacher.active ? "default" : "secondary"}>
+                              {teacher.active ? 'Active' : 'Inactive'}
+                            </Badge>
+                          </TableCell>
                           <TableCell>
                             <div className="flex space-x-2">
                               <Button size="sm" variant="outline">
@@ -1107,275 +1347,103 @@ function App() {
             </div>
           )}
           
-          {/* Classes Management (Admin) */}
-          {activeTab === 'classes' && user.role === 'admin' && (
+          {/* Parents Management (School Admin) */}
+          {activeTab === 'parents' && user.role === 'school_admin' && (
             <div>
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">Classes Management</h2>
-                <Dialog open={showClassModal} onOpenChange={setShowClassModal}>
+                <h2 className="text-2xl font-bold text-gray-900">Parents Management</h2>
+                <Dialog open={showParentModal} onOpenChange={setShowParentModal}>
                   <DialogTrigger asChild>
                     <Button>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Class
+                      <UserPlus className="h-4 w-4 mr-2" />
+                      Add Parent
                     </Button>
                   </DialogTrigger>
                   <DialogContent>
                     <DialogHeader>
-                      <DialogTitle>Add New Class</DialogTitle>
+                      <DialogTitle>Create Parent Account</DialogTitle>
                       <DialogDescription>
-                        Fill in the class information below.
+                        Create a parent account with login credentials.
                       </DialogDescription>
                     </DialogHeader>
-                    <form onSubmit={handleCreateClass}>
+                    <form onSubmit={handleCreateParent}>
                       <div className="grid gap-4 py-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="name">Class Name</Label>
-                          <Input
-                            id="name"
-                            value={classForm.name}
-                            onChange={(e) => setClassForm(prev => ({ ...prev, name: e.target.value }))}
-                            placeholder="e.g., JSS 1A, SS 2B"
-                            required
-                          />
+                        <div className="space-y-4">
+                          <h3 className="font-medium text-gray-900">Parent Information</h3>
+                          
+                          <div className="space-y-2">
+                            <Label htmlFor="parentName">Full Name</Label>
+                            <Input
+                              id="parentName"
+                              value={parentForm.parentData.name}
+                              onChange={(e) => setParentForm(prev => ({ 
+                                ...prev, 
+                                parentData: { ...prev.parentData, name: e.target.value }
+                              }))}
+                              required
+                            />
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <Label htmlFor="parentPhone">Phone Number</Label>
+                            <Input
+                              id="parentPhone"
+                              value={parentForm.parentData.phoneNumber}
+                              onChange={(e) => setParentForm(prev => ({ 
+                                ...prev, 
+                                parentData: { ...prev.parentData, phoneNumber: e.target.value }
+                              }))}
+                              required
+                            />
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <Label htmlFor="parentAddress">Address</Label>
+                            <Textarea
+                              id="parentAddress"
+                              value={parentForm.parentData.address}
+                              onChange={(e) => setParentForm(prev => ({ 
+                                ...prev, 
+                                parentData: { ...prev.parentData, address: e.target.value }
+                              }))}
+                            />
+                          </div>
                         </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="capacity">Capacity</Label>
-                          <Input
-                            id="capacity"
-                            type="number"
-                            value={classForm.capacity}
-                            onChange={(e) => setClassForm(prev => ({ ...prev, capacity: e.target.value }))}
-                            required
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="academicYear">Academic Year</Label>
-                          <Input
-                            id="academicYear"
-                            value={classForm.academicYear}
-                            onChange={(e) => setClassForm(prev => ({ ...prev, academicYear: e.target.value }))}
-                            required
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="description">Description</Label>
-                          <Textarea
-                            id="description"
-                            value={classForm.description}
-                            onChange={(e) => setClassForm(prev => ({ ...prev, description: e.target.value }))}
-                          />
+                        
+                        <div className="border-t pt-4 space-y-4">
+                          <h3 className="font-medium text-gray-900">Login Credentials</h3>
+                          
+                          <div className="space-y-2">
+                            <Label htmlFor="parentEmail">Email</Label>
+                            <Input
+                              id="parentEmail"
+                              type="email"
+                              value={parentForm.parentCredentials.email}
+                              onChange={(e) => setParentForm(prev => ({ 
+                                ...prev, 
+                                parentCredentials: { ...prev.parentCredentials, email: e.target.value }
+                              }))}
+                              required
+                            />
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <Label htmlFor="parentPassword">Temporary Password</Label>
+                            <Input
+                              id="parentPassword"
+                              type="password"
+                              value={parentForm.parentCredentials.password}
+                              onChange={(e) => setParentForm(prev => ({ 
+                                ...prev, 
+                                parentCredentials: { ...prev.parentCredentials, password: e.target.value }
+                              }))}
+                              required
+                            />
+                          </div>
                         </div>
                       </div>
                       <DialogFooter>
-                        <Button type="submit">Create Class</Button>
-                      </DialogFooter>
-                    </form>
-                  </DialogContent>
-                </Dialog>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {classes.map((cls) => (
-                  <Card key={cls.id}>
-                    <CardHeader>
-                      <CardTitle>{cls.name}</CardTitle>
-                      <CardDescription>{cls.description}</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2">
-                        <div className="flex justify-between">
-                          <span className="text-sm text-gray-600">Capacity:</span>
-                          <span className="text-sm font-medium">{cls.capacity}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-sm text-gray-600">Academic Year:</span>
-                          <span className="text-sm font-medium">{cls.academicYear}</span>
-                        </div>
-                      </div>
-                      <div className="mt-4 flex space-x-2">
-                        <Button size="sm" variant="outline">
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button size="sm" variant="outline">
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          )}
-          
-          {/* Subjects Management (Admin) */}
-          {activeTab === 'subjects' && user.role === 'admin' && (
-            <div>
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">Subjects Management</h2>
-                <Dialog open={showSubjectModal} onOpenChange={setShowSubjectModal}>
-                  <DialogTrigger asChild>
-                    <Button>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Subject
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Add New Subject</DialogTitle>
-                      <DialogDescription>
-                        Fill in the subject information below.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <form onSubmit={handleCreateSubject}>
-                      <div className="grid gap-4 py-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="name">Subject Name</Label>
-                          <Input
-                            id="name"
-                            value={subjectForm.name}
-                            onChange={(e) => setSubjectForm(prev => ({ ...prev, name: e.target.value }))}
-                            placeholder="e.g., Mathematics, English Language"
-                            required
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="code">Subject Code</Label>
-                          <Input
-                            id="code"
-                            value={subjectForm.code}
-                            onChange={(e) => setSubjectForm(prev => ({ ...prev, code: e.target.value }))}
-                            placeholder="e.g., MTH101, ENG102"
-                            required
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="credits">Credits</Label>
-                          <Input
-                            id="credits"
-                            type="number"
-                            value={subjectForm.credits}
-                            onChange={(e) => setSubjectForm(prev => ({ ...prev, credits: e.target.value }))}
-                            required
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="description">Description</Label>
-                          <Textarea
-                            id="description"
-                            value={subjectForm.description}
-                            onChange={(e) => setSubjectForm(prev => ({ ...prev, description: e.target.value }))}
-                          />
-                        </div>
-                      </div>
-                      <DialogFooter>
-                        <Button type="submit">Create Subject</Button>
-                      </DialogFooter>
-                    </form>
-                  </DialogContent>
-                </Dialog>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {subjects.map((subject) => (
-                  <Card key={subject.id}>
-                    <CardHeader>
-                      <CardTitle>{subject.name}</CardTitle>
-                      <CardDescription>Code: {subject.code}</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2">
-                        <div className="flex justify-between">
-                          <span className="text-sm text-gray-600">Credits:</span>
-                          <span className="text-sm font-medium">{subject.credits}</span>
-                        </div>
-                        {subject.description && (
-                          <p className="text-sm text-gray-600 mt-2">{subject.description}</p>
-                        )}
-                      </div>
-                      <div className="mt-4 flex space-x-2">
-                        <Button size="sm" variant="outline">
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button size="sm" variant="outline">
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          )}
-          
-          {/* Teacher Assignments (Admin) */}
-          {activeTab === 'assignments' && user.role === 'admin' && (
-            <div>
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">Teacher Assignments</h2>
-                <Dialog open={showAssignmentModal} onOpenChange={setShowAssignmentModal}>
-                  <DialogTrigger asChild>
-                    <Button>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Assign Teacher
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Assign Teacher to Subject & Class</DialogTitle>
-                      <DialogDescription>
-                        Select teacher, subject, and class for the assignment.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <form onSubmit={handleCreateAssignment}>
-                      <div className="grid gap-4 py-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="teacherId">Teacher</Label>
-                          <Select value={assignmentForm.teacherId} onValueChange={(value) => setAssignmentForm(prev => ({ ...prev, teacherId: value }))}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select teacher" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {teachers.map(teacher => (
-                                <SelectItem key={teacher.id} value={teacher.id}>
-                                  {teacher.firstName} {teacher.lastName}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="subjectId">Subject</Label>
-                          <Select value={assignmentForm.subjectId} onValueChange={(value) => setAssignmentForm(prev => ({ ...prev, subjectId: value }))}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select subject" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {subjects.map(subject => (
-                                <SelectItem key={subject.id} value={subject.id}>
-                                  {subject.name} ({subject.code})
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="classId">Class</Label>
-                          <Select value={assignmentForm.classId} onValueChange={(value) => setAssignmentForm(prev => ({ ...prev, classId: value }))}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select class" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {classes.map(cls => (
-                                <SelectItem key={cls.id} value={cls.id}>
-                                  {cls.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                      <DialogFooter>
-                        <Button type="submit">Create Assignment</Button>
+                        <Button type="submit">Create Parent Account</Button>
                       </DialogFooter>
                     </form>
                   </DialogContent>
@@ -1387,31 +1455,33 @@ function App() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Teacher</TableHead>
-                        <TableHead>Subject</TableHead>
-                        <TableHead>Class</TableHead>
-                        <TableHead>Assigned Date</TableHead>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Phone</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Created</TableHead>
                         <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {assignments.map((assignment) => (
-                        <TableRow key={assignment.id}>
+                      {parents.map((parent) => (
+                        <TableRow key={parent.id}>
+                          <TableCell>{parent.name}</TableCell>
+                          <TableCell>{parent.email}</TableCell>
+                          <TableCell>{parent.phoneNumber}</TableCell>
                           <TableCell>
-                            {teachers.find(t => t.id === assignment.teacherId)?.firstName} {teachers.find(t => t.id === assignment.teacherId)?.lastName}
+                            <Badge variant={parent.active ? "default" : "secondary"}>
+                              {parent.active ? 'Active' : 'Inactive'}
+                            </Badge>
                           </TableCell>
-                          <TableCell>{assignment.subjectName}</TableCell>
-                          <TableCell>
-                            <Badge variant="secondary">{assignment.className}</Badge>
-                          </TableCell>
-                          <TableCell>{new Date(assignment.createdAt).toLocaleDateString()}</TableCell>
+                          <TableCell>{new Date(parent.createdAt).toLocaleDateString()}</TableCell>
                           <TableCell>
                             <div className="flex space-x-2">
                               <Button size="sm" variant="outline">
-                                <Edit className="h-4 w-4" />
+                                <Eye className="h-4 w-4" />
                               </Button>
                               <Button size="sm" variant="outline">
-                                <Trash2 className="h-4 w-4" />
+                                <Edit className="h-4 w-4" />
                               </Button>
                             </div>
                           </TableCell>
@@ -1424,189 +1494,6 @@ function App() {
             </div>
           )}
           
-          {/* My Assignments (Teacher) */}
-          {activeTab === 'my-assignments' && user.role === 'teacher' && (
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">My Assignments</h2>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {assignments.map((assignment) => (
-                  <Card key={assignment.id}>
-                    <CardHeader>
-                      <CardTitle>{assignment.subjectName}</CardTitle>
-                      <CardDescription>Class: {assignment.className}</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2">
-                        <div className="flex justify-between">
-                          <span className="text-sm text-gray-600">Assigned:</span>
-                          <span className="text-sm font-medium">
-                            {new Date(assignment.createdAt).toLocaleDateString()}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="mt-4">
-                        <Button size="sm" className="w-full">
-                          View Details
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          )}
-          
-          {/* Attendance Management */}
-          {activeTab === 'attendance' && (user.role === 'admin' || user.role === 'teacher') && (
-            <div>
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">Attendance Management</h2>
-                <Dialog open={showAttendanceModal} onOpenChange={setShowAttendanceModal}>
-                  <DialogTrigger asChild>
-                    <Button>
-                      <Calendar className="h-4 w-4 mr-2" />
-                      Mark Attendance
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-4xl">
-                    <DialogHeader>
-                      <DialogTitle>Mark Attendance</DialogTitle>
-                      <DialogDescription>
-                        Select date and class to mark attendance.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="date">Date</Label>
-                          <Input
-                            id="date"
-                            type="date"
-                            value={attendanceDate}
-                            onChange={(e) => setAttendanceDate(e.target.value)}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="class">Class</Label>
-                          <Select value={selectedClass} onValueChange={setSelectedClass}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select class" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {classes.map(cls => (
-                                <SelectItem key={cls.id} value={cls.id}>
-                                  {cls.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                      
-                      <Button onClick={loadAttendanceForClass} disabled={!selectedClass}>
-                        Load Students
-                      </Button>
-                      
-                      {attendanceList.length > 0 && (
-                        <div className="max-h-96 overflow-y-auto">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>Student Name</TableHead>
-                                <TableHead>Present</TableHead>
-                                <TableHead>Absent</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {attendanceList.map((student, index) => (
-                                <TableRow key={student.studentId}>
-                                  <TableCell>{student.studentName}</TableCell>
-                                  <TableCell>
-                                    <Checkbox
-                                      checked={student.status === 'present'}
-                                      onCheckedChange={(checked) => {
-                                        const newList = [...attendanceList]
-                                        newList[index].status = checked ? 'present' : 'absent'
-                                        setAttendanceList(newList)
-                                      }}
-                                    />
-                                  </TableCell>
-                                  <TableCell>
-                                    <Checkbox
-                                      checked={student.status === 'absent'}
-                                      onCheckedChange={(checked) => {
-                                        const newList = [...attendanceList]
-                                        newList[index].status = checked ? 'absent' : 'present'
-                                        setAttendanceList(newList)
-                                      }}
-                                    />
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        </div>
-                      )}
-                    </div>
-                    <DialogFooter>
-                      <Button onClick={handleMarkAttendance} disabled={attendanceList.length === 0}>
-                        Save Attendance
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              </div>
-              
-              <Card>
-                <CardHeader>
-                  <CardTitle>Recent Attendance Records</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-600">Attendance records will be displayed here.</p>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-          
-          {/* My Children (Parent) */}
-          {activeTab === 'my-children' && user.role === 'parent' && (
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">My Children</h2>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {students.map((student) => (
-                  <Card key={student.id}>
-                    <CardHeader>
-                      <CardTitle>{student.firstName} {student.lastName}</CardTitle>
-                      <CardDescription>
-                        Class: {classes.find(c => c.id === student.classId)?.name || 'N/A'}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2">
-                        <div className="flex justify-between">
-                          <span className="text-sm text-gray-600">Admission No:</span>
-                          <span className="text-sm font-medium">{student.admissionNumber}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-sm text-gray-600">Gender:</span>
-                          <span className="text-sm font-medium capitalize">{student.gender}</span>
-                        </div>
-                      </div>
-                      <div className="mt-4 flex space-x-2">
-                        <Button size="sm" variant="outline" className="flex-1">
-                          <Eye className="h-4 w-4 mr-1" />
-                          View Details
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          )}
-          
           {/* Notifications */}
           {activeTab === 'notifications' && (
             <div>
@@ -1615,7 +1502,7 @@ function App() {
               <div className="space-y-4">
                 {notifications.map((notification) => (
                   <Card key={notification.id} className={`cursor-pointer transition-colors ${
-                    notification.read ? 'bg-gray-50' : 'border-blue-200'
+                    notification.read ? 'bg-gray-50' : 'border-blue-200 bg-blue-50/30'
                   }`}>
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between">
@@ -1623,7 +1510,7 @@ function App() {
                           <div className="flex items-center space-x-2 mb-2">
                             <h3 className="font-medium text-gray-900">{notification.title}</h3>
                             {!notification.read && (
-                              <Badge variant="secondary" className="text-xs">New</Badge>
+                              <Badge variant="default" className="text-xs px-2 py-1">New</Badge>
                             )}
                           </div>
                           <p className="text-sm text-gray-600 mb-2">{notification.message}</p>
@@ -1655,6 +1542,33 @@ function App() {
                 )}
               </div>
             </div>
+          )}
+          
+          {/* Add more content areas for other tabs as needed */}
+          {activeTab === 'students' && user.role === 'school_admin' && (
+            <div>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-gray-900">Students Management</h2>
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Student
+                </Button>
+              </div>
+              <Card>
+                <CardContent className="p-6">
+                  <p className="text-gray-600">Students management interface will be here.</p>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+          
+          {/* Placeholder for other tabs */}
+          {!['dashboard', 'notifications', 'schools', 'teachers', 'parents', 'students'].includes(activeTab) && (
+            <Card>
+              <CardContent className="p-8 text-center">
+                <p className="text-gray-600">This section is under development.</p>
+              </CardContent>
+            </Card>
           )}
         </div>
       </div>
