@@ -309,6 +309,35 @@ export async function POST(request, { params }) {
     
     switch (pathStr) {
       // Authentication routes
+      case 'auth/setup':
+        // Initial setup route to create developer account
+        const { devName, devEmail, devPassword } = body
+        
+        if (!devName || !devEmail || !devPassword) {
+          return NextResponse.json({ error: 'All fields required' }, { status: 400 })
+        }
+        
+        // Check if developer already exists
+        const existingDev = await db.collection('users').findOne({ role: 'developer' })
+        if (existingDev) {
+          return NextResponse.json({ error: 'Developer already exists' }, { status: 400 })
+        }
+        
+        const hashedDevPassword = await bcrypt.hash(devPassword, 10)
+        const newDev = {
+          id: uuidv4(),
+          name: devName,
+          email: devEmail,
+          password: hashedDevPassword,
+          role: 'developer',
+          createdAt: new Date().toISOString(),
+          active: true
+        }
+        
+        await db.collection('users').insertOne(newDev)
+        
+        return NextResponse.json({ message: 'Developer account created successfully' })
+      
       case 'auth/login':
         const { email, password } = body
         
