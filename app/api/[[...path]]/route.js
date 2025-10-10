@@ -240,6 +240,23 @@ export async function GET(request, { params }) {
           .toArray()
         return NextResponse.json(notifications)
       
+      // Chat conversations
+      case 'chat/conversations':
+        const userDataChatConv = authenticateToken(request)
+        if (!userDataChatConv) {
+          return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+        
+        const chatConversations = await db.collection('chat_conversations')
+          .find({
+            schoolId: userDataChatConv.schoolId,
+            participants: userDataChatConv.id
+          })
+          .sort({ lastMessageAt: -1 })
+          .toArray()
+        
+        return NextResponse.json(chatConversations)
+      
       // Dashboard stats
       case 'dashboard/stats':
         const userDataStats = authenticateToken(request)
@@ -687,19 +704,213 @@ export async function POST(request, { params }) {
         if (!userDataNotifRead) {
           return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
-        
+
         const { notificationId } = body
         await db.collection('notifications').updateOne(
-          { 
-            id: notificationId, 
+          {
+            id: notificationId,
             recipientId: userDataNotifRead.id,
-            schoolId: userDataNotifRead.schoolId 
+            schoolId: userDataNotifRead.schoolId
           },
           { $set: { read: true, readAt: new Date().toISOString() } }
         )
-        
+
         return NextResponse.json({ success: true })
-      
+
+      // Create chat conversation
+      case 'chat/conversations':
+        const userDataConversations = authenticateToken(request)
+        if (!userDataConversations) {
+          return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+
+        const { type, name, participants } = body
+
+        if (type === 'private') {
+          // Check if conversation already exists
+          const existingConv = await db.collection('chat_conversations').findOne({
+            schoolId: userDataConversations.schoolId,
+            type: 'private',
+            participants: { $all: [userDataConversations.id, participants[0]], $size: 2 }
+          })
+
+          if (existingConv) {
+            return NextResponse.json(existingConv)
+          }
+
+          const newConv = {
+            id: uuidv4(),
+            schoolId: userDataConversations.schoolId,
+            type: 'private',
+            participants: [userDataConversations.id, participants[0]],
+            createdBy: userDataConversations.id,
+            status: 'approved',
+            lastMessageAt: new Date().toISOString(),
+            createdAt: new Date().toISOString()
+          }
+
+          await db.collection('chat_conversations').insertOne(newConv)
+          return NextResponse.json(newConv)
+        } else if (type === 'group') {
+          if (userDataConversations.role !== 'school_admin') {
+            return NextResponse.json({ error: 'Only admins can create groups' }, { status: 403 })
+          }
+
+          const newGroup = {
+            id: uuidv4(),
+            schoolId: userDataConversations.schoolId,
+            type: 'group',
+            name,
+            participants: [userDataConversations.id, ...participants],
+            createdBy: userDataConversations.id,
+            status: 'approved',
+            lastMessageAt: new Date().toISOString(),
+            createdAt: new Date().toISOString()
+          }
+
+          await db.collection('chat_conversations').insertOne(newGroup)
+          return NextResponse.json(newGroup)
+        }
+
+        return NextResponse.json({ error: 'Invalid conversation type' }, { status: 400 })
+
+      // Get chat conversations
+      case 'chat/conversations/list':
+        const userDataListConv = authenticateToken(request)
+        if (!userDataListConv) {
+          return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+
+        const convList = await db.collection('chat_conversations')
+          .find({
+            schoolId: userDataListConv.schoolId,
+            participants: userDataListConv.id
+          })
+          .sort({ lastMessageAt: -1 })
+          .toArray()
+
+        return NextResponse.json(convList)
+
+      // Get conversation messages
+      case 'chat/messages':
+        const userDataMessages = authenticateToken(request)
+        if (!userDataMessages) {
+          return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+
+        const messageConversationId = searchParams.get('conversationId')
+        if (!messageConversationId) {
+          return NextResponse.json({ error: 'Conversation ID required' }, { status: 400 })
+        }
+
+        // Verify access to conversation
+        const conversation = await db.collection('chat_conversations').findOne({
+          id: messageConversationId,
+          schoolId: userDataMessages.schoolId,
+          $or: [
+            { participants: userDataMessages.id },
+            { type: 'group' }
+          ]
+        })
+
+        if (!conversation) {
+          return NextResponse.json({ error: 'Conversation not found' }, { status: 404 })
+        }
+
+        const messages = await db.collection('chat_messages')
+          .find({ conversationId: messageConversationId, schoolId: userDataMessages.schoolId })
+          .sort({ createdAt: 1 })
+          .limit(limit)
+          .skip(skip)
+          .toArray()
+
+        return NextResponse.json(messages)
+
+      // Request chat approval (for private chats)
+      case 'chat/request-approval':
+        const userDataRequestApproval = authenticateToken(request)
+        if (!userDataRequestApproval) {
+          return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+
+        const { conversationId: reqConversationId, message: requestMessage } = body
+
+        // Update conversation status to pending
+        await db.collection('chat_conversations').updateOne(
+          {
+            id: reqConversationId,
+            schoolId: userDataRequestApproval.schoolId,
+            participants: userDataRequestApproval.id
+          },
+          { $set: { status: 'pending' } }
+        )
+
+        // Create notification for the other participant
+        const conversationForNotif = await db.collection('chat_conversations').findOne({
+          id: reqConversationId,
+          schoolId: userDataRequestApproval.schoolId
+        })
+
+        const otherParticipant = conversationForNotif.participants.find(p => p !== userDataRequestApproval.id)
+
+        const approvalNotification = {
+          id: uuidv4(),
+          schoolId: userDataRequestApproval.schoolId,
+          recipientId: otherParticipant,
+          senderId: userDataRequestApproval.id,
+          title: 'Chat Request',
+          message: requestMessage || 'Someone wants to start a chat with you',
+          type: 'chat_request',
+          priority: 'medium',
+          read: false,
+          metadata: { conversationId: reqConversationId },
+          createdAt: new Date().toISOString()
+        }
+
+        await db.collection('notifications').insertOne(approvalNotification)
+
+        return NextResponse.json({ success: true })
+
+      // Approve chat request
+      case 'chat/approve-request':
+        const userDataApproveRequest = authenticateToken(request)
+        if (!userDataApproveRequest) {
+          return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+
+        const { conversationId: approveConvId } = body
+
+        await db.collection('chat_conversations').updateOne(
+          {
+            id: approveConvId,
+            schoolId: userDataApproveRequest.schoolId,
+            participants: userDataApproveRequest.id
+          },
+          { $set: { status: 'approved' } }
+        )
+
+        return NextResponse.json({ success: true })
+
+      // Reject chat request
+      case 'chat/reject-request':
+        const userDataRejectRequest = authenticateToken(request)
+        if (!userDataRejectRequest) {
+          return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+
+        const { conversationId: rejectConvId } = body
+
+        await db.collection('chat_conversations').updateOne(
+          {
+            id: rejectConvId,
+            schoolId: userDataRejectRequest.schoolId,
+            participants: userDataRejectRequest.id
+          },
+          { $set: { status: 'rejected' } }
+        )
+
+        return NextResponse.json({ success: true })
+
       default:
         return NextResponse.json({ error: 'Route not found' }, { status: 404 })
     }
