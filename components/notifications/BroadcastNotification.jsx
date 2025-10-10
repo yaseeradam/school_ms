@@ -1,8 +1,8 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -39,20 +39,12 @@ function BroadcastNotification({ currentUser, trigger }) {
     students: 0
   })
 
-  // Load user stats when dialog opens
-  useEffect(() => {
-    if (isOpen) {
-      loadUserStats()
-    }
-  }, [isOpen])
-
-  const loadUserStats = async () => {
+  // ✅ Stable user stats loader
+  const loadUserStats = useCallback(async () => {
     try {
       const token = localStorage.getItem('token')
-      const headers = {
-        'Authorization': `Bearer ${token}`
-      }
-      
+      const headers = { 'Authorization': `Bearer ${token}` }
+
       const [teachersRes, parentsRes, studentsRes] = await Promise.all([
         fetch('/api/teachers', { headers }),
         fetch('/api/parents', { headers }),
@@ -64,7 +56,7 @@ function BroadcastNotification({ currentUser, trigger }) {
       const students = studentsRes.ok ? await studentsRes.json() : []
 
       setStats({
-        totalUsers: teachers.length + parents.length,
+        totalUsers: teachers.length + parents.length + students.length,
         teachers: teachers.length,
         parents: parents.length,
         students: students.length
@@ -72,10 +64,27 @@ function BroadcastNotification({ currentUser, trigger }) {
     } catch (error) {
       console.error('Error loading user stats:', error)
     }
-  }
+  }, [])
+
+  // ✅ Only load once when dialog opens
+  useEffect(() => {
+    if (isOpen && stats.totalUsers === 0) {
+      loadUserStats()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen])
+
+  // ✅ Clean up socket listeners on unmount
+  useEffect(() => {
+    return () => {
+      socketManager.off('broadcast_sent')
+      socketManager.off('error')
+    }
+  }, [])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+
     if (!formData.title.trim() || !formData.message.trim() || formData.targetAudience.length === 0) {
       return
     }
@@ -84,20 +93,15 @@ function BroadcastNotification({ currentUser, trigger }) {
     setResult(null)
 
     try {
-      socketManager.broadcastNotification({
-        title: formData.title.trim(),
-        message: formData.message.trim(),
-        targetAudience: formData.targetAudience,
-        priority: formData.priority
-      })
+      // 🔒 Remove any existing listeners before adding new ones
+      socketManager.off('broadcast_sent')
+      socketManager.off('error')
 
-      // Listen for broadcast result
       const handleBroadcastResult = (data) => {
         setResult(data)
         setIsLoading(false)
 
         if (data.count > 0) {
-          // Reset form on success
           setFormData({
             title: '',
             message: '',
@@ -105,7 +109,6 @@ function BroadcastNotification({ currentUser, trigger }) {
             priority: 'medium'
           })
 
-          // Close dialog after a delay
           setTimeout(() => {
             setIsOpen(false)
             setResult(null)
@@ -126,6 +129,12 @@ function BroadcastNotification({ currentUser, trigger }) {
       socketManager.on('broadcast_sent', handleBroadcastResult)
       socketManager.on('error', handleBroadcastError)
 
+      socketManager.broadcastNotification({
+        title: formData.title.trim(),
+        message: formData.message.trim(),
+        targetAudience: formData.targetAudience,
+        priority: formData.priority
+      })
     } catch (error) {
       console.error('Error broadcasting notification:', error)
       setResult({ error: 'Failed to send notification' })
@@ -144,24 +153,16 @@ function BroadcastNotification({ currentUser, trigger }) {
 
   const getAudienceCount = (audience) => {
     switch (audience) {
-      case 'teachers':
-        return stats.teachers
-      case 'parents':
-        return stats.parents
-      case 'students':
-        return stats.students
-      case 'all':
-        return stats.totalUsers
-      default:
-        return 0
+      case 'teachers': return stats.teachers
+      case 'parents': return stats.parents
+      case 'students': return stats.students
+      case 'all': return stats.totalUsers
+      default: return 0
     }
   }
 
-  const selectedCount = React.useMemo(() => {
-    if (formData.targetAudience.includes('all')) {
-      return stats.totalUsers
-    }
-
+  const selectedCount = useMemo(() => {
+    if (formData.targetAudience.includes('all')) return stats.totalUsers
     let count = 0
     if (formData.targetAudience.includes('teachers')) count += stats.teachers
     if (formData.targetAudience.includes('parents')) count += stats.parents
@@ -186,6 +187,7 @@ function BroadcastNotification({ currentUser, trigger }) {
           </Button>
         )}
       </DialogTrigger>
+
       <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-2">
@@ -234,24 +236,9 @@ function BroadcastNotification({ currentUser, trigger }) {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="low">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 rounded-full bg-gray-400"></div>
-                    <span>Low Priority</span>
-                  </div>
-                </SelectItem>
-                <SelectItem value="medium">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 rounded-full bg-yellow-400"></div>
-                    <span>Medium Priority</span>
-                  </div>
-                </SelectItem>
-                <SelectItem value="high">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 rounded-full bg-red-400"></div>
-                    <span>High Priority</span>
-                  </div>
-                </SelectItem>
+                <SelectItem value="low">Low Priority</SelectItem>
+                <SelectItem value="medium">Medium Priority</SelectItem>
+                <SelectItem value="high">High Priority</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -271,22 +258,22 @@ function BroadcastNotification({ currentUser, trigger }) {
                     className={`cursor-pointer transition-all ${
                       isSelected ? 'border-blue-500 bg-blue-50' : 'hover:border-gray-300'
                     }`}
-                    onClick={() => handleAudienceChange(option.value, !isSelected)}
                   >
                     <CardContent className="p-3">
                       <div className="flex items-start space-x-3">
-                        <Checkbox
-                          checked={isSelected}
-                          onCheckedChange={() => {}} // Handled by card click
-                          className="mt-1"
+                        <Checkbox 
+                          checked={isSelected} 
+                          onCheckedChange={(checked) => handleAudienceChange(option.value, checked)}
+                          className="mt-1" 
                         />
-                        <div className="flex-1">
+                        <div 
+                          className="flex-1 cursor-pointer"
+                          onClick={() => handleAudienceChange(option.value, !isSelected)}
+                        >
                           <div className="flex items-center space-x-2 mb-1">
                             <Icon className="h-4 w-4" />
                             <span className="font-medium">{option.label}</span>
-                            <Badge variant="outline" className="text-xs">
-                              {count}
-                            </Badge>
+                            <Badge variant="outline" className="text-xs">{count}</Badge>
                           </div>
                           <p className="text-sm text-gray-600">{option.description}</p>
                         </div>
@@ -299,9 +286,7 @@ function BroadcastNotification({ currentUser, trigger }) {
 
             {formData.targetAudience.length > 0 && (
               <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-                <span className="text-sm font-medium">
-                  Total recipients: {selectedCount}
-                </span>
+                <span className="text-sm font-medium">Total recipients: {selectedCount}</span>
                 <div className="flex flex-wrap gap-1">
                   {formData.targetAudience.map((audience) => (
                     <Badge key={audience} variant="secondary" className="text-xs">
