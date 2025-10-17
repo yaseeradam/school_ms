@@ -1,8 +1,8 @@
+// Chat.jsx
 'use client'
 
 import React, { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
 import { X, MessageCircle } from 'lucide-react'
 import ConversationList from './ConversationList'
 import ChatWindow from './ChatWindow'
@@ -12,7 +12,6 @@ function Chat({ currentUser, isOpen, onToggle }) {
   const [selectedConversation, setSelectedConversation] = useState(null)
   const [isConnected, setIsConnected] = useState(false)
 
-  // Initialize socket connection when component mounts
   useEffect(() => {
     if (!currentUser) return
     
@@ -45,10 +44,6 @@ function Chat({ currentUser, isOpen, onToggle }) {
     setSelectedConversation(conversation)
   }
 
-  const handleCloseChat = () => {
-    setSelectedConversation(null)
-  }
-
   const handleBackToList = () => {
     setSelectedConversation(null)
   }
@@ -72,7 +67,6 @@ function Chat({ currentUser, isOpen, onToggle }) {
 
   return (
     <div className="fixed bottom-4 right-4 z-50 w-96 h-[600px] shadow-2xl rounded-lg overflow-hidden bg-white border flex flex-col">
-      {/* Header */}
       <div className="flex items-center justify-between p-4 bg-blue-600 text-white flex-shrink-0">
         <div className="flex items-center space-x-2">
           <MessageCircle className="h-5 w-5" />
@@ -89,7 +83,6 @@ function Chat({ currentUser, isOpen, onToggle }) {
         </Button>
       </div>
 
-      {/* Chat Content */}
       <div className="flex-1 overflow-hidden">
         {!selectedConversation ? (
           <ConversationList
@@ -99,7 +92,6 @@ function Chat({ currentUser, isOpen, onToggle }) {
           />
         ) : (
           <div className="flex flex-col h-full">
-            {/* Back button */}
             <div className="p-2 border-b flex-shrink-0">
               <Button
                 variant="ghost"
@@ -110,11 +102,10 @@ function Chat({ currentUser, isOpen, onToggle }) {
                 ← Back to Messages
               </Button>
             </div>
-
             <div className="flex-1 overflow-hidden">
               <ChatWindow
                 conversation={selectedConversation}
-                onClose={handleCloseChat}
+                onClose={handleBackToList}
                 currentUser={currentUser}
               />
             </div>

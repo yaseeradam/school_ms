@@ -1,3 +1,5 @@
+
+// ConversationList.jsx
 'use client'
 
 import React, { useState, useEffect } from 'react'
@@ -6,20 +8,13 @@ import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import {
-  MessageCircle,
-  Users,
-  User,
-  Plus,
-  Search,
-  Clock,
-  Check,
-  CheckCheck
+  MessageCircle, Users, User, Plus, Search, Clock, Check, CheckCheck
 } from 'lucide-react'
+import socketManager from '@/lib/socket-client'
 
 function ConversationList({ onSelectConversation, selectedConversationId, currentUser }) {
   const [conversations, setConversations] = useState([])
@@ -38,13 +33,36 @@ function ConversationList({ onSelectConversation, selectedConversationId, curren
     initialMessage: ''
   })
 
-  // Load conversations on component mount
   useEffect(() => {
     loadConversations()
     loadAvailableUsers()
+
+    // Listen for real-time updates
+    const handleConversationUpdate = (conversation) => {
+      setConversations(prev => {
+        const index = prev.findIndex(c => c.id === conversation.id)
+        if (index >= 0) {
+          const updated = [...prev]
+          updated[index] = conversation
+          return updated.sort((a, b) => new Date(b.lastMessageAt) - new Date(a.lastMessageAt))
+        }
+        return [conversation, ...prev]
+      })
+    }
+
+    const handleNewConversation = (conversation) => {
+      setConversations(prev => [conversation, ...prev])
+    }
+
+    socketManager.on('conversation_updated', handleConversationUpdate)
+    socketManager.on('new_conversation', handleNewConversation)
+
+    return () => {
+      socketManager.off('conversation_updated', handleConversationUpdate)
+      socketManager.off('new_conversation', handleNewConversation)
+    }
   }, [])
 
-  // Load user profiles for conversations
   useEffect(() => {
     if (conversations.length > 0) {
       loadUserProfiles()
@@ -94,7 +112,7 @@ function ConversationList({ onSelectConversation, selectedConversationId, curren
       })
       if (response.ok) {
         const data = await response.json()
-        setConversations(data)
+        setConversations(data.sort((a, b) => new Date(b.lastMessageAt) - new Date(a.lastMessageAt)))
       }
     } catch (error) {
       console.error('Error loading conversations:', error)
@@ -158,7 +176,16 @@ function ConversationList({ onSelectConversation, selectedConversationId, curren
         }
       }
 
-      setAvailableUsers(users)
+      // Filter out users we already have conversations with
+      const existingUserIds = new Set()
+      conversations.forEach(conv => {
+        if (conv.type === 'private') {
+          const otherUserId = conv.participants?.find(p => p !== currentUser.id)
+          if (otherUserId) existingUserIds.add(otherUserId)
+        }
+      })
+
+      setAvailableUsers(users.filter(u => !existingUserIds.has(u.id)))
     } catch (error) {
       console.error('Error loading available users:', error)
     }
@@ -166,6 +193,8 @@ function ConversationList({ onSelectConversation, selectedConversationId, curren
 
   const handleStartNewChat = async (e) => {
     e.preventDefault()
+    if (!newChatForm.targetUserId) return
+
     try {
       const token = localStorage.getItem('token')
       const response = await fetch('/api/chat/conversations', {
@@ -176,7 +205,8 @@ function ConversationList({ onSelectConversation, selectedConversationId, curren
         },
         body: JSON.stringify({
           type: 'private',
-          participants: [newChatForm.targetUserId]
+          participants: [newChatForm.targetUserId],
+          initialMessage: newChatForm.initialMessage
         })
       })
 
@@ -186,6 +216,30 @@ function ConversationList({ onSelectConversation, selectedConversationId, curren
         onSelectConversation(conversation)
         setShowNewChatDialog(false)
         setNewChatForm({ targetUserId: '', initialMessage: '' })
+        
+        // Send initial message if provided
+        if (newChatForm.initialMessage) {
+          const messageResponse = await fetch('/api/chat/messages', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              conversationId: conversation.id,
+              messageType: 'text',
+              content: newChatForm.initialMessage,
+              senderId: currentUser.id,
+              senderName: currentUser.name,
+              timestamp: new Date().toISOString()
+            })
+          })
+          
+          if (messageResponse.ok) {
+            const message = await messageResponse.json()
+            socketManager.sendMessage(message)
+          }
+        }
       }
     } catch (error) {
       console.error('Error starting new chat:', error)
@@ -194,6 +248,8 @@ function ConversationList({ onSelectConversation, selectedConversationId, curren
 
   const handleCreateGroupChat = async (e) => {
     e.preventDefault()
+    if (!newGroupForm.name || newGroupForm.participants.length === 0) return
+
     try {
       const token = localStorage.getItem('token')
       const response = await fetch('/api/chat/conversations', {
@@ -227,9 +283,9 @@ function ConversationList({ onSelectConversation, selectedConversationId, curren
     if (conversation.type === 'group') {
       return conversation.name.toLowerCase().includes(searchTerm.toLowerCase())
     } else {
-      // For private chats, we might want to show participant names
-      // This would require additional API calls to get user details
-      return true // For now, show all private chats
+      const otherUserId = conversation.participants?.find(p => p !== currentUser.id)
+      const profile = userProfiles[otherUserId]
+      return profile?.name?.toLowerCase().includes(searchTerm.toLowerCase()) || false
     }
   })
 
@@ -240,22 +296,16 @@ function ConversationList({ onSelectConversation, selectedConversationId, curren
     const now = new Date()
     const diff = now - date
 
-    if (diff < 60000) { // Less than 1 minute
-      return 'now'
-    } else if (diff < 3600000) { // Less than 1 hour
-      return `${Math.floor(diff / 60000)}m`
-    } else if (diff < 86400000) { // Less than 1 day
-      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    } else {
-      return date.toLocaleDateString([], { month: 'short', day: 'numeric' })
-    }
+    if (diff < 60000) return 'now'
+    if (diff < 3600000) return `${Math.floor(diff / 60000)}m`
+    if (diff < 86400000) return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    return date.toLocaleDateString([], { month: 'short', day: 'numeric' })
   }
 
   const getConversationDisplayName = (conversation) => {
     if (conversation.type === 'group') {
       return conversation.name
     } else {
-      // For private chats, show the other participant's name
       const otherUserId = conversation.participants?.find(p => p !== currentUser.id)
       const profile = userProfiles[otherUserId]
       return profile?.name || 'Private Chat'
@@ -270,7 +320,7 @@ function ConversationList({ onSelectConversation, selectedConversationId, curren
       const profile = userProfiles[otherUserId]
       
       if (profile?.profilePicture) {
-        return <img src={profile.profilePicture} alt={profile.name} className="h-full w-full object-cover" />
+        return <img src={profile.profilePicture} alt={profile.name} className="h-full w-full object-cover rounded-full" />
       }
       return profile?.name?.charAt(0).toUpperCase() || <User className="h-5 w-5" />
     }
@@ -281,6 +331,21 @@ function ConversationList({ onSelectConversation, selectedConversationId, curren
     const otherUserId = conversation.participants?.find(p => p !== currentUser.id)
     const profile = userProfiles[otherUserId]
     return profile?.isOnline || false
+  }
+
+  const getLastMessage = (conversation) => {
+    if (!conversation.lastMessage) return 'No messages yet'
+    
+    const isOwnMessage = conversation.lastMessage.senderId === currentUser.id
+    const prefix = isOwnMessage ? 'You: ' : ''
+    
+    if (conversation.lastMessage.messageType === 'image') {
+      return `${prefix}📷 Photo`
+    } else if (conversation.lastMessage.messageType === 'file') {
+      return `${prefix}📎 ${conversation.lastMessage.fileName}`
+    } else {
+      return `${prefix}${conversation.lastMessage.content}`
+    }
   }
 
   return (
@@ -430,7 +495,6 @@ function ConversationList({ onSelectConversation, selectedConversationId, curren
           </div>
         </div>
 
-        {/* Search */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
@@ -488,13 +552,12 @@ function ConversationList({ onSelectConversation, selectedConversationId, curren
                         <p className={`text-sm truncate ${
                           conversation.unreadCount > 0 ? 'font-medium text-gray-900' : 'text-gray-600'
                         }`}>
-                          {conversation.type === 'group'
-                            ? `${conversation.participants?.length || 0} members`
-                            : getUserOnlineStatus(conversation) ? 'Active now' : 'Offline'
-                          }
+                          {getLastMessage(conversation)}
                         </p>
                         {conversation.unreadCount > 0 && (
-                          <div className="h-3 w-3 bg-blue-500 rounded-full"></div>
+                          <Badge className="ml-2 bg-blue-500 text-white">
+                            {conversation.unreadCount}
+                          </Badge>
                         )}
                       </div>
                     </div>

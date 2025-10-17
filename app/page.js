@@ -22,6 +22,8 @@ import BroadcastNotification from '@/components/notifications/BroadcastNotificat
 import BillingDashboard from '@/components/billing/BillingDashboard'
 import GamificationDashboard from '@/components/gamification/GamificationDashboard'
 import { GenderDistributionChart, NewEnrollmentsChart } from '@/components/dashboard/Charts'
+import AIAssistant from '@/components/ai/AIAssistant'
+import { exportStudentsToCSV, exportTeachersToCSV, exportParentsToCSV } from '@/lib/csv-export'
 import {
   Users,
   UserCheck,
@@ -58,10 +60,12 @@ import {
   XCircle,
   MessageCircle,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Bot,
+  Download
 } from 'lucide-react'
 
-function App() {
+export default function App() {
   // Core state
   const [user, setUser] = useState(null)
   const [school, setSchool] = useState(null)
@@ -1072,6 +1076,8 @@ function App() {
           onClick={() => setSidebarOpen(false)}
         />
       )}
+      <div></div>
+      
       
       {/* Sidebar - Fixed responsive positioning */}
       <div className={`
@@ -1139,14 +1145,14 @@ function App() {
               >
                 <Icon className="h-5 w-5 mr-3 flex-shrink-0" />
                 {!sidebarCollapsed && (
-                  <>
+                  <div className="flex items-center">
                     <span className="flex-1">{item.label}</span>
                     {item.id === 'notifications' && notifications.filter(n => !n.read).length > 0 && (
                       <Badge variant="destructive" className="ml-2 text-xs px-1.5 py-0.5">
                         {notifications.filter(n => !n.read).length}
                       </Badge>
                     )}
-                  </>
+                  </div>
                 )}
               </button>
             )
@@ -1235,9 +1241,10 @@ function App() {
         <div className="flex-1 overflow-auto p-4 lg:p-6">
           {/* Dashboard */}
           {activeTab === 'dashboard' && (
+            
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               {user.role === 'developer' && (
-                <>
+                <div>
                   <Card className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-blue-500 bg-white">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                       <CardTitle className="text-sm font-medium text-gray-900">Total Schools</CardTitle>
@@ -1294,11 +1301,11 @@ function App() {
                       </div>
                     </CardContent>
                   </Card>
-                </>
+                </div>
               )}
 
               {user.role === 'school_admin' && (
-                <>
+                <div>
                   <Card className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-blue-500 bg-white">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                       <CardTitle className="text-sm font-medium text-gray-900">Total Students</CardTitle>
@@ -1389,9 +1396,7 @@ function App() {
                       {stats.newEnrollments && <NewEnrollmentsChart data={stats.newEnrollments} />}
                     </CardContent>
                   </Card>
-
-
-                </>
+                </div>
               )}
 
               {user.role === 'teacher' && (
@@ -1805,115 +1810,27 @@ function App() {
             </div>
           )}
           
-          {/* School Settings Modal - REMOVED */}
-          <Dialog open={false} onOpenChange={() => {}}>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>School Settings</DialogTitle>
-                <DialogDescription>
-                  Configure your school's information and appearance.
-                </DialogDescription>
-              </DialogHeader>
-              <form onSubmit={handleSaveSettings}>
-                <div className="grid gap-4 py-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="schoolName">School Name</Label>
-                      <Input
-                        id="schoolName"
-                        value={schoolSettings.schoolName}
-                        onChange={(e) => setSchoolSettings(prev => ({ ...prev, schoolName: e.target.value }))}
-                        placeholder="Enter school name"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="schoolEmail">School Email</Label>
-                      <Input
-                        id="schoolEmail"
-                        type="email"
-                        value={schoolSettings.email}
-                        onChange={(e) => setSchoolSettings(prev => ({ ...prev, email: e.target.value }))}
-                        placeholder="Enter school email"
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="phoneNumber">Phone Number</Label>
-                    <Input
-                      id="phoneNumber"
-                      value={schoolSettings.phoneNumber}
-                      onChange={(e) => setSchoolSettings(prev => ({ ...prev, phoneNumber: e.target.value }))}
-                      placeholder="Enter school phone number"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="address">Address</Label>
-                    <Textarea
-                      id="address"
-                      value={schoolSettings.address}
-                      onChange={(e) => setSchoolSettings(prev => ({ ...prev, address: e.target.value }))}
-                      placeholder="Enter school address"
-                      rows={3}
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="logo">Logo URL</Label>
-                    <div className="flex space-x-2">
-                      <Input
-                        id="logo"
-                        value={schoolSettings.logo}
-                        onChange={(e) => setSchoolSettings(prev => ({ ...prev, logo: e.target.value }))}
-                        placeholder="Enter logo URL"
-                      />
-                      <Button type="button" variant="outline">
-                        <Upload className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="primaryColor">Primary Color</Label>
-                      <Input
-                        id="primaryColor"
-                        type="color"
-                        value={schoolSettings.primaryColor}
-                        onChange={(e) => setSchoolSettings(prev => ({ ...prev, primaryColor: e.target.value }))}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="secondaryColor">Secondary Color</Label>
-                      <Input
-                        id="secondaryColor"
-                        type="color"
-                        value={schoolSettings.secondaryColor}
-                        onChange={(e) => setSchoolSettings(prev => ({ ...prev, secondaryColor: e.target.value }))}
-                      />
-                    </div>
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button type="submit">Save Settings</Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
-          
           {/* Teachers Management (School Admin) */}
           {activeTab === 'teachers' && user.role === 'school_admin' && (
             <div>
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-gray-900">Teachers Management</h2>
-                <Dialog open={showTeacherModal} onOpenChange={setShowTeacherModal}>
-                  <DialogTrigger asChild>
-                    <Button>
-                      <UserPlus className="h-4 w-4 mr-2" />
-                      Add Teacher
-                    </Button>
-                  </DialogTrigger>
+                <div className="flex space-x-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => exportTeachersToCSV(filterTeachers(teachers), school?.name)}
+                    disabled={teachers.length === 0}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Export CSV
+                  </Button>
+                  <Dialog open={showTeacherModal} onOpenChange={setShowTeacherModal}>
+                    <DialogTrigger asChild>
+                      <Button>
+                        <UserPlus className="h-4 w-4 mr-2" />
+                        Add Teacher
+                      </Button>
+                    </DialogTrigger>
                   <DialogContent className="max-w-3xl">
                     <DialogHeader>
                       <DialogTitle>Create Teacher Account</DialogTitle>
@@ -2137,13 +2054,22 @@ function App() {
             <div>
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-gray-900">Parents Management</h2>
-                <Dialog open={showParentModal} onOpenChange={setShowParentModal}>
-                  <DialogTrigger asChild>
-                    <Button>
-                      <UserPlus className="h-4 w-4 mr-2" />
-                      Add Parent
-                    </Button>
-                  </DialogTrigger>
+                <div className="flex space-x-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => exportParentsToCSV(filterParents(parents), students, school?.name)}
+                    disabled={parents.length === 0}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Export CSV
+                  </Button>
+                  <Dialog open={showParentModal} onOpenChange={setShowParentModal}>
+                    <DialogTrigger asChild>
+                      <Button>
+                        <UserPlus className="h-4 w-4 mr-2" />
+                        Add Parent
+                      </Button>
+                    </DialogTrigger>
                   <DialogContent>
                     <DialogHeader>
                       <DialogTitle>Create Parent Account</DialogTitle>
@@ -2392,13 +2318,22 @@ function App() {
             <div>
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-gray-900">Students Management</h2>
-                <Dialog open={showStudentModal} onOpenChange={setShowStudentModal}>
-                  <DialogTrigger asChild>
-                    <Button>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Student
-                    </Button>
-                  </DialogTrigger>
+                <div className="flex space-x-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => exportStudentsToCSV(filterStudents(students), classes, parents, school?.name)}
+                    disabled={students.length === 0}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Export CSV
+                  </Button>
+                  <Dialog open={showStudentModal} onOpenChange={setShowStudentModal}>
+                    <DialogTrigger asChild>
+                      <Button>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Student
+                      </Button>
+                    </DialogTrigger>
                   <DialogContent className="max-w-3xl">
                     <DialogHeader>
                       <DialogTitle>Add New Student</DialogTitle>
@@ -3565,9 +3500,31 @@ function App() {
         </div>
       </div>
 
-
+      {/* AI Assistant Floating Button */}
+      <div className="fixed bottom-6 right-6 z-50">
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button
+              size="lg"
+              className="h-14 w-14 rounded-full shadow-lg bg-blue-600 hover:bg-blue-700 text-white"
+              title="AI Assistant"
+            >
+              <Bot className="h-6 w-6" />
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-4xl h-[80vh] p-0">
+            <DialogHeader className="p-4 border-b">
+              <DialogTitle className="flex items-center">
+                <Bot className="h-5 w-5 mr-2" />
+                EduManage AI Assistant
+              </DialogTitle>
+            </DialogHeader>
+            <div className="flex-1 h-full">
+              <AIAssistant currentUser={user} />
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
     </div>
-  )
+  );
 }
-
-export default App
