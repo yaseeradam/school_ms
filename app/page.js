@@ -58,8 +58,10 @@ import {
   XCircle,
   MessageCircle,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Download
 } from 'lucide-react'
+import { exportStudentsToCSV, exportTeachersToCSV, exportParentsToCSV } from '@/lib/csv-export'
 
 function App() {
   // Core state
@@ -1907,7 +1909,12 @@ function App() {
             <div>
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-gray-900">Teachers Management</h2>
-                <Dialog open={showTeacherModal} onOpenChange={setShowTeacherModal}>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => exportTeachersToCSV(teachers, school?.name)}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Export CSV
+                  </Button>
+                  <Dialog open={showTeacherModal} onOpenChange={setShowTeacherModal}>
                   <DialogTrigger asChild>
                     <Button>
                       <UserPlus className="h-4 w-4 mr-2" />
@@ -2032,6 +2039,7 @@ function App() {
                     </form>
                   </DialogContent>
                 </Dialog>
+                </div>
               </div>
 
               {/* Search and Filters */}
@@ -2137,7 +2145,12 @@ function App() {
             <div>
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-gray-900">Parents Management</h2>
-                <Dialog open={showParentModal} onOpenChange={setShowParentModal}>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => exportParentsToCSV(parents, students, school?.name)}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Export CSV
+                  </Button>
+                  <Dialog open={showParentModal} onOpenChange={setShowParentModal}>
                   <DialogTrigger asChild>
                     <Button>
                       <UserPlus className="h-4 w-4 mr-2" />
@@ -2233,6 +2246,7 @@ function App() {
                     </form>
                   </DialogContent>
                 </Dialog>
+                </div>
               </div>
 
               {/* Search and Filters */}
@@ -2392,7 +2406,12 @@ function App() {
             <div>
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-gray-900">Students Management</h2>
-                <Dialog open={showStudentModal} onOpenChange={setShowStudentModal}>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => exportStudentsToCSV(students, classes, parents, school?.name)}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Export CSV
+                  </Button>
+                  <Dialog open={showStudentModal} onOpenChange={setShowStudentModal}>
                   <DialogTrigger asChild>
                     <Button>
                       <Plus className="h-4 w-4 mr-2" />
@@ -2566,6 +2585,7 @@ function App() {
                     </form>
                   </DialogContent>
                 </Dialog>
+                </div>
               </div>
 
               {/* Search and Filters */}
