@@ -1,10 +1,20 @@
-'use client';
-
 import { useState, useRef, useEffect } from 'react';
-import { Calculator, X, Minus, Moon, Sun, GripHorizontal, History, Copy, Check, Trash2 } from 'lucide-react';
+import { Calculator, X, Minus, Moon, Sun, GripHorizontal, History, Copy, Check, Trash2, Home, User, Settings } from 'lucide-react';
 
-export default function FloatingCalculator() {
-  const [isOpen, setIsOpen] = useState(false);
+// Calculator Component
+function FloatingCalculator({ 
+  isOpen: externalIsOpen, 
+  onClose: externalOnClose,
+  showTriggerButton = true 
+}) {
+  const [internalIsOpen, setInternalIsOpen] = useState(false);
+  
+  // Use external control if provided, otherwise use internal state
+  const isOpen = externalIsOpen !== undefined ? externalIsOpen : internalIsOpen;
+  const setIsOpen = externalOnClose !== undefined 
+    ? (value) => { if (!value) externalOnClose(); }
+    : setInternalIsOpen;
+  
   const [isMinimized, setIsMinimized] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [display, setDisplay] = useState('0');
@@ -18,7 +28,7 @@ export default function FloatingCalculator() {
   const [memory, setMemory] = useState(0);
   const [showPercentageMode, setShowPercentageMode] = useState(false);
   
-  const [position, setPosition] = useState({ x: 100, y: 100 });
+  const [position, setPosition] = useState({ x: window.innerWidth - 420, y: 80 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const calculatorRef = useRef(null);
@@ -384,7 +394,7 @@ export default function FloatingCalculator() {
     );
   };
 
-  if (!isOpen) {
+  if (!isOpen && showTriggerButton) {
     return (
       <button
         onClick={() => setIsOpen(true)}
@@ -393,6 +403,10 @@ export default function FloatingCalculator() {
         <Calculator size={24} />
       </button>
     );
+  }
+
+  if (!isOpen) {
+    return null;
   }
 
   return (
@@ -668,5 +682,85 @@ export default function FloatingCalculator() {
         </div>
       </div>
     </>
+  );
+}
+
+// Main Navbar Example Component
+export default function NavbarExample() {
+  const [calculatorOpen, setCalculatorOpen] = useState(false);
+
+  return (
+    <div className="min-h-screen bg-gray-100">
+      {/* Navbar */}
+      <nav className="bg-blue-600 text-white shadow-lg">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="flex items-center justify-between h-16">
+            {/* Logo/Brand */}
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
+                <span className="text-blue-600 font-bold">M</span>
+              </div>
+              <span className="font-bold text-xl">MyApp</span>
+            </div>
+
+            {/* Navigation Links */}
+            <div className="flex items-center gap-6">
+              <button className="flex items-center gap-2 hover:bg-blue-700 px-3 py-2 rounded-lg transition">
+                <Home size={20} />
+                <span>Home</span>
+              </button>
+              
+              <button className="flex items-center gap-2 hover:bg-blue-700 px-3 py-2 rounded-lg transition">
+                <User size={20} />
+                <span>Profile</span>
+              </button>
+
+              {/* Calculator Button */}
+              <button 
+                onClick={() => setCalculatorOpen(!calculatorOpen)}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition ${
+                  calculatorOpen ? 'bg-blue-700' : 'hover:bg-blue-700'
+                }`}
+              >
+                <Calculator size={20} />
+                <span>Calculator</span>
+              </button>
+
+              <button className="flex items-center gap-2 hover:bg-blue-700 px-3 py-2 rounded-lg transition">
+                <Settings size={20} />
+                <span>Settings</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="bg-white rounded-lg shadow p-6">
+          <h1 className="text-3xl font-bold text-gray-800 mb-4">Welcome!</h1>
+          <p className="text-gray-600 mb-4">
+            Click the "Calculator" button in the navbar above to open the calculator.
+          </p>
+          <p className="text-gray-600 mb-4">
+            The calculator will appear as a floating window that you can:
+          </p>
+          <ul className="list-disc list-inside text-gray-600 space-y-2 ml-4">
+            <li>Drag around the screen</li>
+            <li>Toggle between light and dark mode</li>
+            <li>View calculation history</li>
+            <li>Use with your keyboard</li>
+            <li>Switch between standard and percentage helper modes</li>
+          </ul>
+        </div>
+      </div>
+
+      {/* Calculator Component - Controlled by navbar button */}
+      <FloatingCalculator 
+        isOpen={calculatorOpen} 
+        onClose={() => setCalculatorOpen(false)}
+        showTriggerButton={false}
+      />
+    </div>
   );
 }

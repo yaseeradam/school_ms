@@ -75,16 +75,28 @@ export default function PuterAI() {
           driver: 'openai-completion',
           method: 'complete',
           args: {
-            messages: [...messages, userMessage]
+            messages: [...messages, userMessage].map(m => ({
+              role: m.role,
+              content: m.content
+            }))
           }
         })
       });
 
+      if (!response.ok) throw new Error('API request failed');
+      
       const data = await response.json();
-      const aiMessage = { role: 'assistant', content: data.message?.content || 'No response' };
+      const aiMessage = { 
+        role: 'assistant', 
+        content: data.message?.content || data.result?.message?.content || 'I apologize, but I could not generate a response. Please try again.' 
+      };
       setMessages(prev => [...prev, aiMessage]);
     } catch (error) {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Error connecting to AI' }]);
+      console.error('AI Error:', error);
+      setMessages(prev => [...prev, { 
+        role: 'assistant', 
+        content: 'Sorry, I encountered an error. Please try again later.' 
+      }]);
     } finally {
       setLoading(false);
     }

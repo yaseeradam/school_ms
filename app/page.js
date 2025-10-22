@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Textarea } from '@/components/ui/textarea'
@@ -66,6 +66,7 @@ import {
 import CalculatorApp from '@/components/calculator/calculator'
 import PuterAI from '@/components/ai/PuterAI'
 import { exportStudentsToCSV, exportTeachersToCSV, exportParentsToCSV } from '@/lib/csv-export'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 
 function App() {
   // Core state
@@ -75,6 +76,7 @@ function App() {
   const [loading, setLoading] = useState(true)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [showCalculator, setShowCalculator] = useState(false)
   
   // Auth state
   const [authData, setAuthData] = useState({
@@ -473,6 +475,49 @@ function App() {
     }
   }, [user, token])
   
+  // Apply school colors to website
+  useEffect(() => {
+    const hexToHSL = (hex) => {
+      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
+      if (!result) return null
+      
+      let r = parseInt(result[1], 16) / 255
+      let g = parseInt(result[2], 16) / 255
+      let b = parseInt(result[3], 16) / 255
+      
+      const max = Math.max(r, g, b), min = Math.min(r, g, b)
+      let h, s, l = (max + min) / 2
+      
+      if (max === min) {
+        h = s = 0
+      } else {
+        const d = max - min
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+        switch (max) {
+          case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break
+          case g: h = ((b - r) / d + 2) / 6; break
+          case b: h = ((r - g) / d + 4) / 6; break
+        }
+      }
+      
+      return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`
+    }
+    
+    if (schoolSettings.primaryColor) {
+      const hsl = hexToHSL(schoolSettings.primaryColor)
+      if (hsl) {
+        document.documentElement.style.setProperty('--primary', hsl)
+        document.documentElement.style.setProperty('--theme-primary', schoolSettings.primaryColor)
+      }
+    }
+    if (schoolSettings.secondaryColor) {
+      const hsl = hexToHSL(schoolSettings.secondaryColor)
+      if (hsl) {
+        document.documentElement.style.setProperty('--secondary', hsl)
+      }
+    }
+  }, [schoolSettings.primaryColor, schoolSettings.secondaryColor])
+  
   // API helper
   const apiCall = async (endpoint, options = {}) => {
     try {
@@ -633,6 +678,42 @@ function App() {
   }
   
   // School settings functions
+  const handleLogoUpload = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file')
+      return
+    }
+    
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Image size should be less than 2MB')
+      return
+    }
+    
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      })
+      
+      if (!response.ok) throw new Error('Upload failed')
+      
+      const data = await response.json()
+      setSchoolSettings(prev => ({ ...prev, logo: data.url }))
+      toast.success('Logo uploaded successfully!')
+    } catch (error) {
+      toast.error('Failed to upload logo')
+    }
+  }
+  
   const handleSaveSettings = async (e) => {
     e.preventDefault()
     try {
@@ -644,12 +725,20 @@ function App() {
       toast.success('Settings saved successfully!')
       setShowSettingsModal(false)
       
-      // Update local school data if name changed
-      if (school && schoolSettings.schoolName !== school.name) {
-        const updatedSchool = { ...school, name: schoolSettings.schoolName }
+      // Update local school data
+      if (school) {
+        const updatedSchool = { 
+          ...school, 
+          name: schoolSettings.schoolName,
+          logo: schoolSettings.logo
+        }
         setSchool(updatedSchool)
         localStorage.setItem('school', JSON.stringify(updatedSchool))
       }
+      
+      // Apply colors to document
+      document.documentElement.style.setProperty('--primary-color', schoolSettings.primaryColor)
+      document.documentElement.style.setProperty('--secondary-color', schoolSettings.secondaryColor)
     } catch (error) {
       // Error already handled in apiCall
     }
@@ -1143,10 +1232,12 @@ function App() {
         {/* Sidebar Header */}
         <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200">
           <div className="flex items-center">
-            {school?.logo ? (
-              <img src={school.logo} alt="School Logo" className="h-8 w-8 mr-3 rounded" />
+            {schoolSettings?.logo ? (
+              <img src={schoolSettings.logo} alt="School Logo" className="h-12 w-12 mr-3 rounded object-cover" />
+            ) : school?.logo ? (
+              <img src={school.logo} alt="School Logo" className="h-12 w-12 mr-3 rounded object-cover" />
             ) : (
-              <School className="h-8 w-8 text-blue-600 mr-3" />
+              <School className="h-12 w-12 text-blue-600 mr-3" />
             )}
             {!sidebarCollapsed && (
               <div>
@@ -1272,6 +1363,17 @@ function App() {
           </div>
           
           <div className="flex items-center space-x-3">
+            {user.role === 'school_admin' && (
+              <BroadcastNotification
+                currentUser={user}
+                trigger={
+                  <Button variant="outline" size="sm">
+                    <Megaphone className="h-4 w-4 mr-2" />
+                    Broadcast
+                  </Button>
+                }
+              />
+            )}
             <NotificationCenter
               currentUser={user}
               isOpen={false}
@@ -1284,17 +1386,47 @@ function App() {
             >
               <Bot className="h-5 w-5 text-gray-600" />
             </button>
-            <CalculatorApp />
-            {user.role === 'school_admin' && activeTab !== 'school-settings' && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setActiveTab('school-settings')}
-              >
-                <Settings className="h-4 w-4 mr-2" />
-                Settings
-              </Button>
-            )}
+            <button
+              onClick={() => setShowCalculator(true)}
+              className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+              title="Calculator"
+            >
+              <Calculator className="h-5 w-5 text-gray-600" />
+            </button>
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex items-center space-x-2 p-1 rounded-lg hover:bg-gray-100 transition-colors">
+                  <Avatar className="h-8 w-8">
+                    <AvatarFallback className="bg-blue-100 text-blue-700 font-medium text-sm">
+                      {user.name.charAt(0)}
+                    </AvatarFallback>
+                  </Avatar>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium">{user.name}</p>
+                    <p className="text-xs text-gray-500">{user.email}</p>
+                    <Badge variant="secondary" className="text-xs w-fit capitalize">
+                      {user.role === 'school_admin' ? 'Admin' : user.role.replace('_', ' ')}
+                    </Badge>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {user.role === 'school_admin' && (
+                  <DropdownMenuItem onClick={() => setActiveTab('school-settings')}>
+                    <Settings className="h-4 w-4 mr-2" />
+                    Settings
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem onClick={handleLogout} className="text-red-600">
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Logout
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
         
@@ -1833,33 +1965,60 @@ function App() {
                     </div>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="logo">Logo URL</Label>
-                      <Input
-                        id="logo"
-                        value={schoolSettings.logo}
-                        onChange={(e) => setSchoolSettings(prev => ({ ...prev, logo: e.target.value }))}
-                        placeholder="Enter logo URL"
-                      />
+                      <Label htmlFor="logo">School Logo</Label>
+                      <div className="flex items-center gap-4">
+                        {schoolSettings.logo && (
+                          <img src={schoolSettings.logo} alt="Logo" className="h-16 w-16 object-contain border rounded" />
+                        )}
+                        <div className="flex-1">
+                          <Input
+                            id="logoFile"
+                            type="file"
+                            accept="image/*"
+                            onChange={handleLogoUpload}
+                            className="cursor-pointer"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">Upload image (max 2MB)</p>
+                        </div>
+                      </div>
                     </div>
                     
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="primaryColor">Primary Color</Label>
-                        <Input
-                          id="primaryColor"
-                          type="color"
-                          value={schoolSettings.primaryColor}
-                          onChange={(e) => setSchoolSettings(prev => ({ ...prev, primaryColor: e.target.value }))}
-                        />
+                        <div className="flex gap-2">
+                          <Input
+                            id="primaryColor"
+                            type="color"
+                            value={schoolSettings.primaryColor}
+                            onChange={(e) => setSchoolSettings(prev => ({ ...prev, primaryColor: e.target.value }))}
+                            className="w-20 h-10 cursor-pointer"
+                          />
+                          <Input
+                            type="text"
+                            value={schoolSettings.primaryColor}
+                            onChange={(e) => setSchoolSettings(prev => ({ ...prev, primaryColor: e.target.value }))}
+                            className="flex-1"
+                          />
+                        </div>
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="secondaryColor">Secondary Color</Label>
-                        <Input
-                          id="secondaryColor"
-                          type="color"
-                          value={schoolSettings.secondaryColor}
-                          onChange={(e) => setSchoolSettings(prev => ({ ...prev, secondaryColor: e.target.value }))}
-                        />
+                        <div className="flex gap-2">
+                          <Input
+                            id="secondaryColor"
+                            type="color"
+                            value={schoolSettings.secondaryColor}
+                            onChange={(e) => setSchoolSettings(prev => ({ ...prev, secondaryColor: e.target.value }))}
+                            className="w-20 h-10 cursor-pointer"
+                          />
+                          <Input
+                            type="text"
+                            value={schoolSettings.secondaryColor}
+                            onChange={(e) => setSchoolSettings(prev => ({ ...prev, secondaryColor: e.target.value }))}
+                            className="flex-1"
+                          />
+                        </div>
                       </div>
                     </div>
                     
@@ -3790,6 +3949,14 @@ function App() {
       <div data-puter-ai>
         <PuterAI />
       </div>
+      
+      {showCalculator && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowCalculator(false)}>
+          <div onClick={(e) => e.stopPropagation()}>
+            <CalculatorApp />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

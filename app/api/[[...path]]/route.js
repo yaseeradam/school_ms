@@ -229,20 +229,28 @@ export async function GET(request, { params }) {
       
       // Notifications
       case 'notifications':
-        const userDataNotif = authenticateToken(request)
-        if (!userDataNotif) {
-          return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        try {
+          const userDataNotif = authenticateToken(request)
+          if (!userDataNotif) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+          }
+          
+          const notifQuery = { recipientId: userDataNotif.id }
+          if (userDataNotif.schoolId) {
+            notifQuery.schoolId = userDataNotif.schoolId
+          }
+          
+          const notifications = await db.collection('notifications')
+            .find(notifQuery)
+            .sort({ createdAt: -1 })
+            .limit(limit)
+            .skip(skip)
+            .toArray()
+          return NextResponse.json(notifications)
+        } catch (notifError) {
+          console.error('Notifications error:', notifError)
+          return NextResponse.json([])
         }
-        const notifications = await db.collection('notifications')
-          .find({ 
-            recipientId: userDataNotif.id,
-            schoolId: userDataNotif.schoolId 
-          })
-          .sort({ createdAt: -1 })
-          .limit(limit)
-          .skip(skip)
-          .toArray()
-        return NextResponse.json(notifications)
       
       // Chat conversations
       case 'chat/conversations':
