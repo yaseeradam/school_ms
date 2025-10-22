@@ -464,6 +464,9 @@ function App() {
     if (user && token) {
       loadDashboardData()
       loadNotifications()
+      if (user.role === 'school_admin' || user.role === 'teacher') {
+        loadTodayAttendance()
+      }
       if (user.role === 'school_admin') {
         loadSchoolSettings()
       }
@@ -865,37 +868,60 @@ function App() {
   }
   
   const loadAttendanceForClass = async () => {
-    if (!selectedClass || !attendanceDate) return
+    if (!attendanceDate) return
     
     try {
-      console.log('Loading attendance for class:', selectedClass, 'Total students:', students.length)
-      
-      // Get students in the selected class
-      const classStudents = students.filter(student => student.classId === selectedClass)
-      console.log('Students in class:', classStudents.length)
-      
-      if (classStudents.length === 0) {
-        console.log('No students found in class')
-        setAttendanceList([])
-        return
+      if (user.role === 'school_admin') {
+        // Admin marks teacher attendance - ensure teachers are loaded
+        if (teachers.length === 0) {
+          console.log('No teachers loaded yet')
+          return
+        }
+        
+        const attendanceRecords = await apiCall(`attendance?date=${attendanceDate}`)
+        
+        const attendanceMap = {}
+        attendanceRecords.forEach(record => {
+          if (record.teacherId) {
+            attendanceMap[record.teacherId] = record.status
+          }
+        })
+        
+        const attendanceData = teachers.map(teacher => ({
+          teacherId: teacher.id,
+          teacherName: `${teacher.firstName} ${teacher.lastName}`,
+          status: attendanceMap[teacher.id] || 'present'
+        }))
+        
+        setAttendanceList(attendanceData)
+      } else if (user.role === 'teacher') {
+        // Teacher marks student attendance
+        if (!selectedClass) return
+        
+        const classStudents = students.filter(student => student.classId === selectedClass)
+        
+        if (classStudents.length === 0) {
+          setAttendanceList([])
+          return
+        }
+        
+        const attendanceRecords = await apiCall(`attendance?classId=${selectedClass}&date=${attendanceDate}`)
+        
+        const attendanceMap = {}
+        attendanceRecords.forEach(record => {
+          if (record.studentId) {
+            attendanceMap[record.studentId] = record.status
+          }
+        })
+        
+        const attendanceData = classStudents.map(student => ({
+          studentId: student.id,
+          studentName: `${student.firstName} ${student.lastName}`,
+          status: attendanceMap[student.id] || 'present'
+        }))
+        
+        setAttendanceList(attendanceData)
       }
-      
-      // Get existing attendance records for this date
-      const attendanceRecords = await apiCall(`attendance?classId=${selectedClass}&date=${attendanceDate}`)
-      
-      const attendanceMap = {}
-      attendanceRecords.forEach(record => {
-        attendanceMap[record.studentId] = record.status
-      })
-      
-      const attendanceData = classStudents.map(student => ({
-        studentId: student.id,
-        studentName: `${student.firstName} ${student.lastName}`,
-        status: attendanceMap[student.id] || 'absent'
-      }))
-      
-      console.log('Attendance data:', attendanceData)
-      setAttendanceList(attendanceData)
     } catch (error) {
       console.error('Error loading attendance:', error)
       setAttendanceList([])
@@ -904,22 +930,46 @@ function App() {
   
   const handleMarkAttendance = async () => {
     try {
-      const attendanceData = attendanceList.map(item => ({
-        studentId: item.studentId,
-        classId: selectedClass,
-        date: attendanceDate,
-        status: item.status
-      }))
-      
-      await apiCall('attendance/bulk', {
-        method: 'POST',
-        body: JSON.stringify({ attendanceList: attendanceData })
-      })
+      if (user.role === 'school_admin') {
+        const attendanceData = attendanceList.map(item => ({
+          teacherId: item.teacherId,
+          date: attendanceDate,
+          status: item.status
+        }))
+        
+        await apiCall('attendance/bulk', {
+          method: 'POST',
+          body: JSON.stringify({ attendanceList: attendanceData })
+        })
+      } else {
+        const attendanceData = attendanceList.map(item => ({
+          studentId: item.studentId,
+          classId: selectedClass,
+          date: attendanceDate,
+          status: item.status
+        }))
+        
+        await apiCall('attendance/bulk', {
+          method: 'POST',
+          body: JSON.stringify({ attendanceList: attendanceData })
+        })
+      }
       
       toast.success('Attendance marked successfully!')
       setShowAttendanceModal(false)
+      loadTodayAttendance()
     } catch (error) {
       // Error already handled in apiCall
+    }
+  }
+
+  const loadTodayAttendance = async () => {
+    try {
+      const today = new Date().toISOString().split('T')[0]
+      const records = await apiCall(`attendance?date=${today}`)
+      setAttendance(records)
+    } catch (error) {
+      console.error('Error loading today attendance:', error)
     }
   }
   
@@ -987,12 +1037,16 @@ function App() {
   
   const [activeTab, setActiveTab] = useState('dashboard')
 
-  // Load attendance when class or date changes
+  // Load attendance when modal opens or date/class changes
   useEffect(() => {
-    if (selectedClass && attendanceDate && students.length > 0) {
+    if (!showAttendanceModal) return
+    
+    if (user?.role === 'school_admin' && attendanceDate && teachers.length > 0) {
+      loadAttendanceForClass()
+    } else if (user?.role === 'teacher' && selectedClass && attendanceDate && students.length > 0) {
       loadAttendanceForClass()
     }
-  }, [selectedClass, attendanceDate, students])
+  }, [showAttendanceModal, selectedClass, attendanceDate, students.length, teachers.length, user?.role])
 
   // Load parent payments when on payments tab
   useEffect(() => {
@@ -3223,129 +3277,205 @@ function App() {
           {activeTab === 'attendance' && (user.role === 'school_admin' || user.role === 'teacher') && (
             <div>
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">Attendance Management</h2>
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">Attendance Management</h2>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {user.role === 'school_admin' ? 'Mark and track teacher attendance' : 'Mark and track student attendance'}
+                  </p>
+                </div>
                 <Dialog open={showAttendanceModal} onOpenChange={setShowAttendanceModal}>
                   <DialogTrigger asChild>
                     <Button onClick={() => {
+                      const today = new Date().toISOString().split('T')[0]
                       setSelectedClass('')
                       setAttendanceList([])
-                      setAttendanceDate(new Date().toISOString().split('T')[0])
-                    }}>
+                      setAttendanceDate(today)
+                      setShowAttendanceModal(true)
+                    }} size="lg">
                       <Calendar className="h-4 w-4 mr-2" />
-                      Mark Attendance
+                      Mark {user.role === 'school_admin' ? 'Teacher' : 'Student'} Attendance
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-4xl">
+                  <DialogContent className="max-w-5xl max-h-[90vh]">
                     <DialogHeader>
-                      <DialogTitle>Mark Attendance</DialogTitle>
+                      <DialogTitle className="text-xl">Mark {user.role === 'school_admin' ? 'Teacher' : 'Student'} Attendance</DialogTitle>
                       <DialogDescription>
-                        Select class and date to mark attendance for students.
+                        {user.role === 'school_admin' ? 'Select date to mark attendance for all teachers.' : 'Select class and date to mark attendance for students.'}
                       </DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-6">
+                      <div className={user.role === 'school_admin' ? 'grid grid-cols-1 gap-4' : 'grid grid-cols-2 gap-4'}>
+                        {user.role === 'teacher' && (
+                          <div className="space-y-2">
+                            <Label className="text-base font-medium">Select Class</Label>
+                            <Select
+                              value={selectedClass}
+                              onValueChange={(value) => {
+                                setSelectedClass(value)
+                                setAttendanceList([])
+                              }}
+                            >
+                              <SelectTrigger className="h-11">
+                                <SelectValue placeholder="Choose a class" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {classes.map((cls) => (
+                                  <SelectItem key={cls.id} value={cls.id}>
+                                    {cls.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
                         <div className="space-y-2">
-                          <Label>Select Class</Label>
-                          <Select
-                            value={selectedClass}
-                            onValueChange={(value) => {
-                              setSelectedClass(value)
-                              setAttendanceList([])
-                            }}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Choose a class" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {classes.map((cls) => (
-                                <SelectItem key={cls.id} value={cls.id}>
-                                  {cls.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Date</Label>
+                          <Label className="text-base font-medium">Date</Label>
                           <Input
                             type="date"
+                            className="h-11"
                             value={attendanceDate}
+                            max={new Date().toISOString().split('T')[0]}
                             onChange={(e) => {
                               setAttendanceDate(e.target.value)
-                              if (selectedClass) {
-                                setAttendanceList([])
-                              }
                             }}
                           />
                         </div>
                       </div>
 
-                      {selectedClass && attendanceDate && (
+                      {((user.role === 'school_admin' && attendanceDate) || (user.role === 'teacher' && selectedClass && attendanceDate)) && (
                         <div className="space-y-4">
                           {attendanceList.length === 0 ? (
-                            <div className="text-center py-4">
-                              <p className="text-gray-500">Loading students...</p>
+                            <div className="text-center py-8">
+                              <div className="animate-pulse">
+                                <Users className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                                <p className="text-gray-500">Loading {user.role === 'school_admin' ? 'teachers' : 'students'}...</p>
+                              </div>
                             </div>
                           ) : (
                             <>
-                              <h3 className="font-medium">Students Attendance ({attendanceList.length} students)</h3>
-                              <div className="max-h-96 overflow-y-auto space-y-2">
-                                {attendanceList.map((student, index) => (
-                                  <div key={student.studentId} className="flex items-center justify-between p-3 border rounded-lg">
-                                    <span className="font-medium">{student.studentName}</span>
-                                    <div className="flex space-x-2">
+                              <div className="flex items-center justify-between bg-gray-50 p-4 rounded-lg">
+                                <h3 className="font-semibold text-lg">
+                                  {user.role === 'school_admin' ? `${attendanceList.length} Teachers` : `${attendanceList.length} Students`}
+                                </h3>
+                                <div className="flex gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                      const newList = attendanceList.map(item => ({ ...item, status: 'present' }))
+                                      setAttendanceList(newList)
+                                    }}
+                                  >
+                                    Mark All Present
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                      const newList = attendanceList.map(item => ({ ...item, status: 'absent' }))
+                                      setAttendanceList(newList)
+                                    }}
+                                  >
+                                    Mark All Absent
+                                  </Button>
+                                </div>
+                              </div>
+                              <div className="max-h-[400px] overflow-y-auto space-y-2 pr-2">
+                                {attendanceList.map((item, index) => (
+                                  <div key={item.teacherId || item.studentId} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors">
+                                    <div className="flex items-center gap-3">
+                                      <Avatar className="h-10 w-10">
+                                        <AvatarFallback className="bg-blue-100 text-blue-700 font-medium">
+                                          {(item.teacherName || item.studentName).split(' ').map(n => n[0]).join('')}
+                                        </AvatarFallback>
+                                      </Avatar>
+                                      <div>
+                                        <span className="font-medium text-base">{item.teacherName || item.studentName}</span>
+                                        <p className="text-xs text-gray-500">ID: {(item.teacherId || item.studentId).slice(0, 8)}</p>
+                                      </div>
+                                    </div>
+                                    <div className="flex gap-2">
                                       <Button
                                         size="sm"
-                                        variant={student.status === 'present' ? 'default' : 'outline'}
+                                        className="min-w-[90px]"
+                                        variant={item.status === 'present' ? 'default' : 'outline'}
                                         onClick={() => {
                                           const newList = [...attendanceList]
                                           newList[index].status = 'present'
                                           setAttendanceList(newList)
                                         }}
                                       >
+                                        <CheckCircle className="h-4 w-4 mr-1" />
                                         Present
                                       </Button>
                                       <Button
                                         size="sm"
-                                        variant={student.status === 'absent' ? 'destructive' : 'outline'}
+                                        className="min-w-[90px]"
+                                        variant={item.status === 'absent' ? 'destructive' : 'outline'}
                                         onClick={() => {
                                           const newList = [...attendanceList]
                                           newList[index].status = 'absent'
                                           setAttendanceList(newList)
                                         }}
                                       >
+                                        <XCircle className="h-4 w-4 mr-1" />
                                         Absent
                                       </Button>
                                       <Button
                                         size="sm"
-                                        variant={student.status === 'late' ? 'secondary' : 'outline'}
+                                        className="min-w-[90px]"
+                                        variant={item.status === 'late' ? 'secondary' : 'outline'}
                                         onClick={() => {
                                           const newList = [...attendanceList]
                                           newList[index].status = 'late'
                                           setAttendanceList(newList)
                                         }}
                                       >
+                                        <Clock className="h-4 w-4 mr-1" />
                                         Late
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        className="min-w-[90px]"
+                                        variant={item.status === 'sick' ? 'default' : 'outline'}
+                                        onClick={() => {
+                                          const newList = [...attendanceList]
+                                          newList[index].status = 'sick'
+                                          setAttendanceList(newList)
+                                        }}
+                                      >
+                                        <Activity className="h-4 w-4 mr-1" />
+                                        Sick
                                       </Button>
                                     </div>
                                   </div>
                                 ))}
                               </div>
-                              <div className="flex justify-end space-x-2">
-                                <Button variant="outline" onClick={() => setShowAttendanceModal(false)}>
-                                  Cancel
-                                </Button>
-                                <Button onClick={handleMarkAttendance}>
-                                  Save Attendance
-                                </Button>
+                              <div className="flex justify-between items-center pt-4 border-t">
+                                <div className="text-sm text-gray-600">
+                                  Present: <span className="font-semibold text-green-600">{attendanceList.filter(i => i.status === 'present').length}</span> | 
+                                  Absent: <span className="font-semibold text-red-600">{attendanceList.filter(i => i.status === 'absent').length}</span> | 
+                                  Late: <span className="font-semibold text-yellow-600">{attendanceList.filter(i => i.status === 'late').length}</span> | 
+                                  Sick: <span className="font-semibold text-orange-600">{attendanceList.filter(i => i.status === 'sick').length}</span>
+                                </div>
+                                <div className="flex gap-2">
+                                  <Button variant="outline" onClick={() => setShowAttendanceModal(false)}>
+                                    Cancel
+                                  </Button>
+                                  <Button onClick={handleMarkAttendance} size="lg">
+                                    <CheckCircle className="h-4 w-4 mr-2" />
+                                    Save Attendance
+                                  </Button>
+                                </div>
                               </div>
                             </>
                           )}
                         </div>
                       )}
                       
-                      {!selectedClass && (
-                        <div className="text-center py-4">
+                      {user.role === 'teacher' && !selectedClass && (
+                        <div className="text-center py-8">
+                          <School className="h-12 w-12 text-gray-400 mx-auto mb-3" />
                           <p className="text-gray-500">Please select a class to view students</p>
                         </div>
                       )}
@@ -3355,7 +3485,7 @@ function App() {
               </div>
 
               {/* Attendance Overview */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center">
@@ -3364,8 +3494,12 @@ function App() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-3xl font-bold text-green-600">0</div>
-                    <p className="text-sm text-gray-600 mt-1">Students present</p>
+                    <div className="text-3xl font-bold text-green-600">
+                      {attendance.filter(a => a.status === 'present').length}
+                    </div>
+                    <p className="text-sm text-gray-600 mt-1">
+                      {user.role === 'school_admin' ? 'Teachers present' : 'Students present'}
+                    </p>
                   </CardContent>
                 </Card>
 
@@ -3377,8 +3511,12 @@ function App() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-3xl font-bold text-red-600">0</div>
-                    <p className="text-sm text-gray-600 mt-1">Students absent</p>
+                    <div className="text-3xl font-bold text-red-600">
+                      {attendance.filter(a => a.status === 'absent').length}
+                    </div>
+                    <p className="text-sm text-gray-600 mt-1">
+                      {user.role === 'school_admin' ? 'Teachers absent' : 'Students absent'}
+                    </p>
                   </CardContent>
                 </Card>
 
@@ -3390,8 +3528,29 @@ function App() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-3xl font-bold text-yellow-600">0</div>
-                    <p className="text-sm text-gray-600 mt-1">Students late</p>
+                    <div className="text-3xl font-bold text-yellow-600">
+                      {attendance.filter(a => a.status === 'late').length}
+                    </div>
+                    <p className="text-sm text-gray-600 mt-1">
+                      {user.role === 'school_admin' ? 'Teachers late' : 'Students late'}
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center">
+                      <Activity className="h-5 w-5 mr-2 text-orange-600" />
+                      Sick Today
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold text-orange-600">
+                      {attendance.filter(a => a.status === 'sick').length}
+                    </div>
+                    <p className="text-sm text-gray-600 mt-1">
+                      {user.role === 'school_admin' ? 'Teachers sick' : 'Students sick'}
+                    </p>
                   </CardContent>
                 </Card>
               </div>
@@ -3399,30 +3558,64 @@ function App() {
               {/* Recent Attendance Records */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Recent Attendance Records</CardTitle>
-                  <CardDescription>View recent attendance data across all classes</CardDescription>
+                  <CardTitle>Today's Attendance Details</CardTitle>
+                  <CardDescription>Individual attendance records for today</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Class</TableHead>
-                        <TableHead>Present</TableHead>
-                        <TableHead>Absent</TableHead>
-                        <TableHead>Late</TableHead>
-                        <TableHead>Total</TableHead>
-                        <TableHead>Percentage</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      <TableRow>
-                        <TableCell colSpan={7} className="text-center py-8 text-gray-500">
-                          No attendance records found
-                        </TableCell>
-                      </TableRow>
-                    </TableBody>
-                  </Table>
+                  {attendance.length > 0 ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>{user.role === 'school_admin' ? 'Teacher' : 'Student'}</TableHead>
+                          {user.role === 'teacher' && <TableHead>Class</TableHead>}
+                          <TableHead>Status</TableHead>
+                          <TableHead>Marked By</TableHead>
+                          <TableHead>Time</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {attendance.map((record) => {
+                          const person = user.role === 'school_admin' 
+                            ? teachers.find(t => t.id === record.teacherId)
+                            : students.find(s => s.id === record.studentId)
+                          const className = user.role === 'teacher' ? classes.find(c => c.id === record.classId)?.name : null
+                          
+                          return (
+                            <TableRow key={record.id}>
+                              <TableCell className="font-medium">
+                                {person ? `${person.firstName} ${person.lastName}` : 'Unknown'}
+                              </TableCell>
+                              {user.role === 'teacher' && <TableCell>{className || 'N/A'}</TableCell>}
+                              <TableCell>
+                                <Badge 
+                                  variant={record.status === 'present' ? 'default' : record.status === 'absent' ? 'destructive' : record.status === 'sick' ? 'default' : 'secondary'}
+                                  className={record.status === 'sick' ? 'bg-orange-600' : ''}
+                                >
+                                  {record.status === 'present' && <CheckCircle className="h-3 w-3 mr-1" />}
+                                  {record.status === 'absent' && <XCircle className="h-3 w-3 mr-1" />}
+                                  {record.status === 'late' && <Clock className="h-3 w-3 mr-1" />}
+                                  {record.status === 'sick' && <Activity className="h-3 w-3 mr-1" />}
+                                  {record.status.charAt(0).toUpperCase() + record.status.slice(1)}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-sm text-gray-600">
+                                {record.markedBy === user.id ? 'You' : 'Admin'}
+                              </TableCell>
+                              <TableCell className="text-sm text-gray-600">
+                                {new Date(record.createdAt).toLocaleTimeString()}
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })}
+                      </TableBody>
+                    </Table>
+                  ) : (
+                    <div className="text-center py-8">
+                      <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                      <p className="text-gray-600">No attendance marked for today</p>
+                      <p className="text-sm text-gray-500 mt-1">Click "Mark Attendance" to get started</p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>

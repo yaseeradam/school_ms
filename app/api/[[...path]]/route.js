@@ -701,6 +701,34 @@ export async function POST(request, { params }) {
         }
         
         const { attendanceList } = body
+        
+        if (!attendanceList || attendanceList.length === 0) {
+          return NextResponse.json({ error: 'No attendance data provided' }, { status: 400 })
+        }
+        
+        // Get date from first record
+        const attendanceDate = attendanceList[0].date
+        
+        // Delete existing records for this date
+        if (userDataBulkAttendance.role === 'school_admin') {
+          // Admin marking teacher attendance
+          await db.collection('attendance').deleteMany({
+            schoolId: userDataBulkAttendance.schoolId,
+            date: attendanceDate,
+            teacherId: { $exists: true }
+          })
+        } else {
+          // Teacher marking student attendance for a class
+          const classId = attendanceList[0].classId
+          await db.collection('attendance').deleteMany({
+            schoolId: userDataBulkAttendance.schoolId,
+            date: attendanceDate,
+            classId: classId,
+            studentId: { $exists: true }
+          })
+        }
+        
+        // Insert new records
         const bulkAttendance = attendanceList.map(record => ({
           id: uuidv4(),
           ...record,
