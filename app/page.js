@@ -22,6 +22,8 @@ import BroadcastNotification from '@/components/notifications/BroadcastNotificat
 import BillingDashboard from '@/components/billing/BillingDashboard'
 import GamificationDashboard from '@/components/gamification/GamificationDashboard'
 import { GenderDistributionChart, NewEnrollmentsChart } from '@/components/dashboard/Charts'
+import QuickActions from '@/components/dashboard/QuickActions'
+import AttendanceCharts from '@/components/dashboard/AttendanceCharts'
 import {
   Users,
   UserCheck,
@@ -61,7 +63,8 @@ import {
   ChevronRight,
   Download,
   Calculator,
-  Bot
+  Bot,
+  Camera
 } from 'lucide-react'
 import CalculatorApp from '@/components/calculator/calculator'
 import PuterAI from '@/components/ai/PuterAI'
@@ -1433,11 +1436,6 @@ function App() {
                   }
                 />
               )}
-              <NotificationCenter
-                currentUser={user}
-                isOpen={false}
-                onToggle={() => {}}
-              />
               <button
                 onClick={() => document.querySelector('[data-puter-trigger]')?.click()}
                 className="p-2.5 rounded-xl hover:bg-gradient-to-br hover:from-blue-50 hover:to-purple-50 transition-all text-gray-600 hover:text-blue-600 group"
@@ -1498,6 +1496,21 @@ function App() {
         <div className="flex-1 overflow-auto p-4 lg:p-6">
           {/* Dashboard */}
           {activeTab === 'dashboard' && (
+            <div className="space-y-8">
+            {/* Quick Actions */}
+            {(user.role === 'school_admin' || user.role === 'teacher') && (
+              <QuickActions 
+                userRole={user.role}
+                onAction={(actionId) => {
+                  if (actionId === 'add-student') setShowStudentModal(true)
+                  else if (actionId === 'add-teacher') setShowTeacherModal(true)
+                  else if (actionId === 'add-parent') setShowParentModal(true)
+                  else if (actionId === 'mark-attendance') setShowAttendanceModal(true)
+                  else if (actionId === 'generate-report') toast.info('Report generation coming soon!')
+                }}
+              />
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {/* Students Card */}
               <Card className="group hover:shadow-2xl transition-all duration-300 border-0 bg-gradient-to-br from-blue-50 to-blue-100 overflow-hidden relative">
@@ -1623,6 +1636,12 @@ function App() {
                   </div>
                 </CardContent>
               </Card>
+            </div>
+
+            {/* Attendance Charts */}
+            {(user.role === 'school_admin' || user.role === 'teacher') && (
+              <AttendanceCharts />
+            )}
             </div>
           )}
           
@@ -2087,139 +2106,182 @@ function App() {
                       Add Teacher
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-3xl">
-                    <DialogHeader>
-                      <DialogTitle>Create Teacher Account</DialogTitle>
-                      <DialogDescription>
+                  <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+                    <DialogHeader className="bg-gradient-to-r from-emerald-50 to-teal-50 -mx-6 -mt-6 px-6 py-4 border-b border-emerald-100">
+                      <DialogTitle className="text-2xl font-bold text-emerald-900">Create Teacher Account</DialogTitle>
+                      <DialogDescription className="text-emerald-700 text-base">
                         Fill in teacher information and create login credentials.
                       </DialogDescription>
                     </DialogHeader>
                     <form onSubmit={handleCreateTeacher}>
-                      <div className="grid gap-4 py-4 max-h-96 overflow-y-auto">
-                        <div className="space-y-4">
-                          <h3 className="font-medium text-gray-900">Personal Information</h3>
+                      <div className="overflow-y-auto max-h-[calc(90vh-200px)] px-1 py-6">
+                        <div className="space-y-6">
+                          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-2xl border-2 border-blue-100">
+                            <h3 className="text-lg font-bold text-blue-900 mb-4 flex items-center">
+                              <div className="w-2 h-6 bg-gradient-to-b from-blue-500 to-indigo-600 rounded-full mr-3"></div>
+                              Personal Information
+                            </h3>
 
-                          <div className="space-y-2">
-                            <Label>Photo</Label>
-                            <div className="flex items-center gap-4">
-                              {teacherPhotoPreview && (
-                                <img src={teacherPhotoPreview} alt="Preview" className="h-20 w-20 rounded-full object-cover border-2 border-gray-200" />
-                              )}
-                              <div className="flex-1">
-                                <Input
-                                  type="file"
-                                  accept="image/*"
-                                  capture="environment"
-                                  onChange={(e) => handlePhotoUpload(e, 'teacher')}
-                                  className="cursor-pointer"
+                            <div className="space-y-5">
+                              <div className="bg-white p-4 rounded-xl border border-blue-100">
+                                <Label className="text-base font-semibold text-gray-700 mb-3 block">Photo</Label>
+                                <div className="flex items-center gap-4">
+                                  {teacherPhotoPreview && (
+                                    <img src={teacherPhotoPreview} alt="Preview" className="h-24 w-24 rounded-2xl object-cover border-4 border-blue-200 shadow-lg" />
+                                  )}
+                                  <div className="flex-1 space-y-3">
+                                    <div className="flex gap-3">
+                                      <label className="flex-1 cursor-pointer">
+                                        <Input
+                                          type="file"
+                                          accept="image/*"
+                                          onChange={(e) => handlePhotoUpload(e, 'teacher')}
+                                          className="cursor-pointer h-12 text-base"
+                                        />
+                                      </label>
+                                      <label className="cursor-pointer">
+                                        <Input
+                                          type="file"
+                                          accept="image/*"
+                                          capture="environment"
+                                          onChange={(e) => handlePhotoUpload(e, 'teacher')}
+                                          className="hidden"
+                                          id="teacher-camera"
+                                        />
+                                        <Button type="button" variant="outline" className="h-12 px-6" onClick={() => document.getElementById('teacher-camera').click()}>
+                                          <Camera className="h-5 w-5 mr-2" />
+                                          Camera
+                                        </Button>
+                                      </label>
+                                    </div>
+                                    <p className="text-sm text-gray-500">Upload photo or use camera (max 5MB)</p>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <div className="bg-white p-4 rounded-xl border border-blue-100">
+                                  <Label htmlFor="firstName" className="text-base font-semibold text-gray-700 mb-2 block">First Name *</Label>
+                                  <Input
+                                    id="firstName"
+                                    value={teacherForm.teacherData.firstName}
+                                    onChange={(e) => setTeacherForm(prev => ({
+                                      ...prev,
+                                      teacherData: { ...prev.teacherData, firstName: e.target.value }
+                                    }))}
+                                    className="h-12 text-lg"
+                                    placeholder="Enter first name"
+                                    required
+                                  />
+                                </div>
+                                <div className="bg-white p-4 rounded-xl border border-blue-100">
+                                  <Label htmlFor="lastName" className="text-base font-semibold text-gray-700 mb-2 block">Last Name *</Label>
+                                  <Input
+                                    id="lastName"
+                                    value={teacherForm.teacherData.lastName}
+                                    onChange={(e) => setTeacherForm(prev => ({
+                                      ...prev,
+                                      teacherData: { ...prev.teacherData, lastName: e.target.value }
+                                    }))}
+                                    className="h-12 text-lg"
+                                    placeholder="Enter last name"
+                                    required
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <div className="bg-white p-4 rounded-xl border border-blue-100">
+                                  <Label htmlFor="teacherPhone" className="text-base font-semibold text-gray-700 mb-2 block">Phone Number *</Label>
+                                  <Input
+                                    id="teacherPhone"
+                                    value={teacherForm.teacherData.phoneNumber}
+                                    onChange={(e) => setTeacherForm(prev => ({
+                                      ...prev,
+                                      teacherData: { ...prev.teacherData, phoneNumber: e.target.value }
+                                    }))}
+                                    className="h-12 text-lg"
+                                    placeholder="Enter phone number"
+                                    required
+                                  />
+                                </div>
+                                <div className="bg-white p-4 rounded-xl border border-blue-100">
+                                  <Label htmlFor="qualification" className="text-base font-semibold text-gray-700 mb-2 block">Qualification *</Label>
+                                  <Input
+                                    id="qualification"
+                                    value={teacherForm.teacherData.qualification}
+                                    onChange={(e) => setTeacherForm(prev => ({
+                                      ...prev,
+                                      teacherData: { ...prev.teacherData, qualification: e.target.value }
+                                    }))}
+                                    className="h-12 text-lg"
+                                    placeholder="e.g., B.Ed, M.Sc"
+                                    required
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="bg-white p-4 rounded-xl border border-blue-100">
+                                <Label htmlFor="teacherAddress" className="text-base font-semibold text-gray-700 mb-2 block">Address</Label>
+                                <Textarea
+                                  id="teacherAddress"
+                                  value={teacherForm.teacherData.address}
+                                  onChange={(e) => setTeacherForm(prev => ({
+                                    ...prev,
+                                    teacherData: { ...prev.teacherData, address: e.target.value }
+                                  }))}
+                                  className="min-h-[100px] text-lg"
+                                  placeholder="Enter full address"
                                 />
-                                <p className="text-xs text-gray-500 mt-1">Upload from device or take photo (max 5MB)</p>
                               </div>
                             </div>
                           </div>
 
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <Label htmlFor="firstName">First Name</Label>
-                              <Input
-                                id="firstName"
-                                value={teacherForm.teacherData.firstName}
-                                onChange={(e) => setTeacherForm(prev => ({
-                                  ...prev,
-                                  teacherData: { ...prev.teacherData, firstName: e.target.value }
-                                }))}
-                                required
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="lastName">Last Name</Label>
-                              <Input
-                                id="lastName"
-                                value={teacherForm.teacherData.lastName}
-                                onChange={(e) => setTeacherForm(prev => ({
-                                  ...prev,
-                                  teacherData: { ...prev.teacherData, lastName: e.target.value }
-                                }))}
-                                required
-                              />
-                            </div>
-                          </div>
+                          <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-6 rounded-2xl border-2 border-purple-100">
+                            <h3 className="text-lg font-bold text-purple-900 mb-4 flex items-center">
+                              <div className="w-2 h-6 bg-gradient-to-b from-purple-500 to-pink-600 rounded-full mr-3"></div>
+                              Login Credentials
+                            </h3>
 
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <Label htmlFor="teacherPhone">Phone Number</Label>
-                              <Input
-                                id="teacherPhone"
-                                value={teacherForm.teacherData.phoneNumber}
-                                onChange={(e) => setTeacherForm(prev => ({
-                                  ...prev,
-                                  teacherData: { ...prev.teacherData, phoneNumber: e.target.value }
-                                }))}
-                                required
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="qualification">Qualification</Label>
-                              <Input
-                                id="qualification"
-                                value={teacherForm.teacherData.qualification}
-                                onChange={(e) => setTeacherForm(prev => ({
-                                  ...prev,
-                                  teacherData: { ...prev.teacherData, qualification: e.target.value }
-                                }))}
-                                required
-                              />
-                            </div>
-                          </div>
-
-                          <div className="space-y-2">
-                            <Label htmlFor="teacherAddress">Address</Label>
-                            <Textarea
-                              id="teacherAddress"
-                              value={teacherForm.teacherData.address}
-                              onChange={(e) => setTeacherForm(prev => ({
-                                ...prev,
-                                teacherData: { ...prev.teacherData, address: e.target.value }
-                              }))}
-                            />
-                          </div>
-                        </div>
-
-                        <div className="border-t pt-4 space-y-4">
-                          <h3 className="font-medium text-gray-900">Login Credentials</h3>
-
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <Label htmlFor="teacherEmail">Email</Label>
-                              <Input
-                                id="teacherEmail"
-                                type="email"
-                                value={teacherForm.credentials.email}
-                                onChange={(e) => setTeacherForm(prev => ({
-                                  ...prev,
-                                  credentials: { ...prev.credentials, email: e.target.value }
-                                }))}
-                                required
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="teacherPassword">Temporary Password</Label>
-                              <Input
-                                id="teacherPassword"
-                                type="password"
-                                value={teacherForm.credentials.password}
-                                onChange={(e) => setTeacherForm(prev => ({
-                                  ...prev,
-                                  credentials: { ...prev.credentials, password: e.target.value }
-                                }))}
-                                required
-                              />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                              <div className="bg-white p-4 rounded-xl border border-purple-100">
+                                <Label htmlFor="teacherEmail" className="text-base font-semibold text-gray-700 mb-2 block">Email *</Label>
+                                <Input
+                                  id="teacherEmail"
+                                  type="email"
+                                  value={teacherForm.credentials.email}
+                                  onChange={(e) => setTeacherForm(prev => ({
+                                    ...prev,
+                                    credentials: { ...prev.credentials, email: e.target.value }
+                                  }))}
+                                  className="h-12 text-lg"
+                                  placeholder="teacher@school.com"
+                                  required
+                                />
+                              </div>
+                              <div className="bg-white p-4 rounded-xl border border-purple-100">
+                                <Label htmlFor="teacherPassword" className="text-base font-semibold text-gray-700 mb-2 block">Temporary Password *</Label>
+                                <Input
+                                  id="teacherPassword"
+                                  type="password"
+                                  value={teacherForm.credentials.password}
+                                  onChange={(e) => setTeacherForm(prev => ({
+                                    ...prev,
+                                    credentials: { ...prev.credentials, password: e.target.value }
+                                  }))}
+                                  className="h-12 text-lg"
+                                  placeholder="Enter password"
+                                  required
+                                />
+                              </div>
                             </div>
                           </div>
                         </div>
                       </div>
-                      <DialogFooter>
-                        <Button type="submit">Create Teacher Account</Button>
+                      <DialogFooter className="bg-gradient-to-r from-gray-50 to-gray-100 -mx-6 -mb-6 px-6 py-4 border-t mt-6">
+                        <Button type="submit" size="lg" className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white px-8 h-12 text-base font-semibold shadow-lg">
+                          Create Teacher Account
+                        </Button>
                       </DialogFooter>
                     </form>
                   </DialogContent>
@@ -2342,110 +2404,151 @@ function App() {
                       Add Parent
                     </Button>
                   </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Create Parent Account</DialogTitle>
-                      <DialogDescription>
+                  <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden">
+                    <DialogHeader className="bg-gradient-to-r from-amber-50 to-orange-50 -mx-6 -mt-6 px-6 py-4 border-b border-amber-100">
+                      <DialogTitle className="text-2xl font-bold text-amber-900">Create Parent Account</DialogTitle>
+                      <DialogDescription className="text-amber-700 text-base">
                         Create a parent account with login credentials.
                       </DialogDescription>
                     </DialogHeader>
                     <form onSubmit={handleCreateParent}>
-                      <div className="grid gap-4 py-4">
-                        <div className="space-y-4">
-                          <h3 className="font-medium text-gray-900">Parent Information</h3>
+                      <div className="overflow-y-auto max-h-[calc(90vh-200px)] px-1 py-6">
+                        <div className="space-y-6">
+                          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-2xl border-2 border-blue-100">
+                            <h3 className="text-lg font-bold text-blue-900 mb-4 flex items-center">
+                              <div className="w-2 h-6 bg-gradient-to-b from-blue-500 to-indigo-600 rounded-full mr-3"></div>
+                              Parent Information
+                            </h3>
 
-                          <div className="space-y-2">
-                            <Label>Photo</Label>
-                            <div className="flex items-center gap-4">
-                              {parentPhotoPreview && (
-                                <img src={parentPhotoPreview} alt="Preview" className="h-20 w-20 rounded-full object-cover border-2 border-gray-200" />
-                              )}
-                              <div className="flex-1">
+                            <div className="space-y-5">
+                              <div className="bg-white p-4 rounded-xl border border-blue-100">
+                                <Label className="text-base font-semibold text-gray-700 mb-3 block">Photo</Label>
+                                <div className="flex items-center gap-4">
+                                  {parentPhotoPreview && (
+                                    <img src={parentPhotoPreview} alt="Preview" className="h-24 w-24 rounded-2xl object-cover border-4 border-blue-200 shadow-lg" />
+                                  )}
+                                  <div className="flex-1 space-y-3">
+                                    <div className="flex gap-3">
+                                      <label className="flex-1 cursor-pointer">
+                                        <Input
+                                          type="file"
+                                          accept="image/*"
+                                          onChange={(e) => handlePhotoUpload(e, 'parent')}
+                                          className="cursor-pointer h-12 text-base"
+                                        />
+                                      </label>
+                                      <label className="cursor-pointer">
+                                        <Input
+                                          type="file"
+                                          accept="image/*"
+                                          capture="environment"
+                                          onChange={(e) => handlePhotoUpload(e, 'parent')}
+                                          className="hidden"
+                                          id="parent-camera"
+                                        />
+                                        <Button type="button" variant="outline" className="h-12 px-6" onClick={() => document.getElementById('parent-camera').click()}>
+                                          <Camera className="h-5 w-5 mr-2" />
+                                          Camera
+                                        </Button>
+                                      </label>
+                                    </div>
+                                    <p className="text-sm text-gray-500">Upload photo or use camera (max 5MB)</p>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="bg-white p-4 rounded-xl border border-blue-100">
+                                <Label htmlFor="parentName" className="text-base font-semibold text-gray-700 mb-2 block">Full Name *</Label>
                                 <Input
-                                  type="file"
-                                  accept="image/*"
-                                  capture="environment"
-                                  onChange={(e) => handlePhotoUpload(e, 'parent')}
-                                  className="cursor-pointer"
+                                  id="parentName"
+                                  value={parentForm.parentData.name}
+                                  onChange={(e) => setParentForm(prev => ({
+                                    ...prev,
+                                    parentData: { ...prev.parentData, name: e.target.value }
+                                  }))}
+                                  className="h-12 text-lg"
+                                  placeholder="Enter full name"
+                                  required
                                 />
-                                <p className="text-xs text-gray-500 mt-1">Upload from device or take photo (max 5MB)</p>
+                              </div>
+
+                              <div className="bg-white p-4 rounded-xl border border-blue-100">
+                                <Label htmlFor="parentPhone" className="text-base font-semibold text-gray-700 mb-2 block">Phone Number *</Label>
+                                <Input
+                                  id="parentPhone"
+                                  value={parentForm.parentData.phoneNumber}
+                                  onChange={(e) => setParentForm(prev => ({
+                                    ...prev,
+                                    parentData: { ...prev.parentData, phoneNumber: e.target.value }
+                                  }))}
+                                  className="h-12 text-lg"
+                                  placeholder="Enter phone number"
+                                  required
+                                />
+                              </div>
+
+                              <div className="bg-white p-4 rounded-xl border border-blue-100">
+                                <Label htmlFor="parentAddress" className="text-base font-semibold text-gray-700 mb-2 block">Address</Label>
+                                <Textarea
+                                  id="parentAddress"
+                                  value={parentForm.parentData.address}
+                                  onChange={(e) => setParentForm(prev => ({
+                                    ...prev,
+                                    parentData: { ...prev.parentData, address: e.target.value }
+                                  }))}
+                                  className="min-h-[100px] text-lg"
+                                  placeholder="Enter full address"
+                                />
                               </div>
                             </div>
                           </div>
 
-                          <div className="space-y-2">
-                            <Label htmlFor="parentName">Full Name</Label>
-                            <Input
-                              id="parentName"
-                              value={parentForm.parentData.name}
-                              onChange={(e) => setParentForm(prev => ({
-                                ...prev,
-                                parentData: { ...prev.parentData, name: e.target.value }
-                              }))}
-                              required
-                            />
-                          </div>
+                          <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-6 rounded-2xl border-2 border-purple-100">
+                            <h3 className="text-lg font-bold text-purple-900 mb-4 flex items-center">
+                              <div className="w-2 h-6 bg-gradient-to-b from-purple-500 to-pink-600 rounded-full mr-3"></div>
+                              Login Credentials
+                            </h3>
 
-                          <div className="space-y-2">
-                            <Label htmlFor="parentPhone">Phone Number</Label>
-                            <Input
-                              id="parentPhone"
-                              value={parentForm.parentData.phoneNumber}
-                              onChange={(e) => setParentForm(prev => ({
-                                ...prev,
-                                parentData: { ...prev.parentData, phoneNumber: e.target.value }
-                              }))}
-                              required
-                            />
-                          </div>
+                            <div className="space-y-5">
+                              <div className="bg-white p-4 rounded-xl border border-purple-100">
+                                <Label htmlFor="parentEmail" className="text-base font-semibold text-gray-700 mb-2 block">Email *</Label>
+                                <Input
+                                  id="parentEmail"
+                                  type="email"
+                                  value={parentForm.parentCredentials.email}
+                                  onChange={(e) => setParentForm(prev => ({
+                                    ...prev,
+                                    parentCredentials: { ...prev.parentCredentials, email: e.target.value }
+                                  }))}
+                                  className="h-12 text-lg"
+                                  placeholder="parent@email.com"
+                                  required
+                                />
+                              </div>
 
-                          <div className="space-y-2">
-                            <Label htmlFor="parentAddress">Address</Label>
-                            <Textarea
-                              id="parentAddress"
-                              value={parentForm.parentData.address}
-                              onChange={(e) => setParentForm(prev => ({
-                                ...prev,
-                                parentData: { ...prev.parentData, address: e.target.value }
-                              }))}
-                            />
-                          </div>
-                        </div>
-
-                        <div className="border-t pt-4 space-y-4">
-                          <h3 className="font-medium text-gray-900">Login Credentials</h3>
-
-                          <div className="space-y-2">
-                            <Label htmlFor="parentEmail">Email</Label>
-                            <Input
-                              id="parentEmail"
-                              type="email"
-                              value={parentForm.parentCredentials.email}
-                              onChange={(e) => setParentForm(prev => ({
-                                ...prev,
-                                parentCredentials: { ...prev.parentCredentials, email: e.target.value }
-                              }))}
-                              required
-                            />
-                          </div>
-
-                          <div className="space-y-2">
-                            <Label htmlFor="parentPassword">Temporary Password</Label>
-                            <Input
-                              id="parentPassword"
-                              type="password"
-                              value={parentForm.parentCredentials.password}
-                              onChange={(e) => setParentForm(prev => ({
-                                ...prev,
-                                parentCredentials: { ...prev.parentCredentials, password: e.target.value }
-                              }))}
-                              required
-                            />
+                              <div className="bg-white p-4 rounded-xl border border-purple-100">
+                                <Label htmlFor="parentPassword" className="text-base font-semibold text-gray-700 mb-2 block">Temporary Password *</Label>
+                                <Input
+                                  id="parentPassword"
+                                  type="password"
+                                  value={parentForm.parentCredentials.password}
+                                  onChange={(e) => setParentForm(prev => ({
+                                    ...prev,
+                                    parentCredentials: { ...prev.parentCredentials, password: e.target.value }
+                                  }))}
+                                  className="h-12 text-lg"
+                                  placeholder="Enter password"
+                                  required
+                                />
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>
-                      <DialogFooter>
-                        <Button type="submit">Create Parent Account</Button>
+                      <DialogFooter className="bg-gradient-to-r from-gray-50 to-gray-100 -mx-6 -mb-6 px-6 py-4 border-t mt-6">
+                        <Button type="submit" size="lg" className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white px-8 h-12 text-base font-semibold shadow-lg">
+                          Create Parent Account
+                        </Button>
                       </DialogFooter>
                     </form>
                   </DialogContent>
@@ -2622,15 +2725,15 @@ function App() {
                       Add Student
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-3xl">
-                    <DialogHeader>
-                      <DialogTitle>Add New Student</DialogTitle>
-                      <DialogDescription>
+                  <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+                    <DialogHeader className="bg-gradient-to-r from-blue-50 to-cyan-50 -mx-6 -mt-6 px-6 py-4 border-b border-blue-100">
+                      <DialogTitle className="text-2xl font-bold text-blue-900">Add New Student</DialogTitle>
+                      <DialogDescription className="text-blue-700 text-base">
                         Fill in student information to create a new student record.
                       </DialogDescription>
                     </DialogHeader>
                     <form onSubmit={handleCreateStudent}>
-                      <div className="grid gap-4 py-4 max-h-96 overflow-y-auto">
+                      <div className="overflow-y-auto max-h-[calc(90vh-200px)] px-1 py-6">
                         <div className="space-y-4">
                           <h3 className="font-medium text-gray-900">Personal Information</h3>
 
@@ -2640,15 +2743,32 @@ function App() {
                               {studentPhotoPreview && (
                                 <img src={studentPhotoPreview} alt="Preview" className="h-20 w-20 rounded-full object-cover border-2 border-gray-200" />
                               )}
-                              <div className="flex-1">
-                                <Input
-                                  type="file"
-                                  accept="image/*"
-                                  capture="environment"
-                                  onChange={(e) => handlePhotoUpload(e, 'student')}
-                                  className="cursor-pointer"
-                                />
-                                <p className="text-xs text-gray-500 mt-1">Upload from device or take photo (max 5MB)</p>
+                              <div className="flex-1 space-y-2">
+                                <div className="flex gap-2">
+                                  <label className="flex-1 cursor-pointer">
+                                    <Input
+                                      type="file"
+                                      accept="image/*"
+                                      onChange={(e) => handlePhotoUpload(e, 'student')}
+                                      className="cursor-pointer"
+                                    />
+                                  </label>
+                                  <label className="cursor-pointer">
+                                    <Input
+                                      type="file"
+                                      accept="image/*"
+                                      capture="environment"
+                                      onChange={(e) => handlePhotoUpload(e, 'student')}
+                                      className="hidden"
+                                      id="student-camera"
+                                    />
+                                    <Button type="button" variant="outline" className="w-full" onClick={() => document.getElementById('student-camera').click()}>
+                                      <Camera className="h-4 w-4 mr-2" />
+                                      Camera
+                                    </Button>
+                                  </label>
+                                </div>
+                                <p className="text-xs text-gray-500">Upload photo or use camera (max 5MB)</p>
                               </div>
                             </div>
                           </div>
@@ -3949,13 +4069,7 @@ function App() {
         <PuterAI />
       </div>
       
-      {showCalculator && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowCalculator(false)}>
-          <div onClick={(e) => e.stopPropagation()}>
-            <CalculatorApp />
-          </div>
-        </div>
-      )}
+      {showCalculator && <CalculatorApp isOpen={showCalculator} onClose={() => setShowCalculator(false)} />}
     </div>
   )
 }
