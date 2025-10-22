@@ -1275,28 +1275,30 @@ function App() {
       {/* Sidebar - Fixed responsive positioning */}
       <div className={`
         fixed lg:static inset-y-0 left-0 z-50 
-        ${sidebarCollapsed ? 'w-16' : 'w-64'} bg-white shadow-lg border-r border-gray-200
+        ${sidebarCollapsed ? 'w-16' : 'w-64'} bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 shadow-2xl
         transform transition-all duration-300 ease-in-out 
         lg:translate-x-0 lg:block
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
         {/* Sidebar Header */}
-        <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200">
+        <div className="flex items-center justify-between h-16 px-6 border-b border-slate-700/50 bg-slate-800/50">
           <div className="flex items-center">
             {schoolSettings?.logo ? (
-              <img src={schoolSettings.logo} alt="School Logo" className="h-12 w-12 mr-3 rounded object-cover" />
+              <img src={schoolSettings.logo} alt="School Logo" className="h-12 w-12 mr-3 rounded-xl object-cover ring-2 ring-blue-400/50" />
             ) : school?.logo ? (
-              <img src={school.logo} alt="School Logo" className="h-12 w-12 mr-3 rounded object-cover" />
+              <img src={school.logo} alt="School Logo" className="h-12 w-12 mr-3 rounded-xl object-cover ring-2 ring-blue-400/50" />
             ) : (
-              <School className="h-12 w-12 text-blue-600 mr-3" />
+              <div className="h-12 w-12 mr-3 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg">
+                <School className="h-7 w-7 text-white" />
+              </div>
             )}
             {!sidebarCollapsed && (
               <div>
-                <span className="text-lg font-bold text-gray-900 block leading-tight">
+                <span className="text-lg font-bold text-white block leading-tight">
                   {school?.name || 'EduManage'}
                 </span>
                 {user.role === 'developer' && (
-                  <span className="text-xs text-blue-600 font-medium">Master System</span>
+                  <span className="text-xs text-blue-400 font-medium">Master System</span>
                 )}
               </div>
             )}
@@ -1305,7 +1307,7 @@ function App() {
             {/* Collapse/Expand Button - Hidden on mobile */}
             <button
               onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-              className="hidden lg:block text-gray-400 hover:text-gray-600 p-1 rounded"
+              className="hidden lg:block text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-700/50 transition-all"
               title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             >
               {sidebarCollapsed ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
@@ -1313,7 +1315,7 @@ function App() {
             {/* Mobile close button */}
             <button
               onClick={() => setSidebarOpen(false)}
-              className="lg:hidden text-gray-400 hover:text-gray-600 p-1"
+              className="lg:hidden text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-700/50 transition-all"
             >
               <X className="h-5 w-5" />
             </button>
@@ -1321,7 +1323,7 @@ function App() {
         </div>
         
         {/* Navigation */}
-        <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
           {getNavigationItems().map((item) => {
             const Icon = item.icon
             return (
@@ -1331,19 +1333,21 @@ function App() {
                   setActiveTab(item.id)
                   setSidebarOpen(false)
                 }}
-                className={`w-full flex items-center px-3 py-2.5 text-left text-sm font-medium rounded-lg transition-all duration-200 ${
+                className={`w-full flex items-center px-3 py-2.5 text-left text-sm font-medium rounded-xl transition-all duration-200 group ${
                   activeTab === item.id
-                    ? 'bg-blue-50 text-blue-700 border-l-4 border-blue-700 shadow-sm'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg shadow-blue-500/50 scale-105'
+                    : 'text-slate-300 hover:bg-slate-800/50 hover:text-white'
                 }`}
                 title={sidebarCollapsed ? item.label : ''}
               >
-                <Icon className="h-5 w-5 mr-3 flex-shrink-0" />
+                <Icon className={`h-5 w-5 mr-3 flex-shrink-0 transition-transform duration-200 ${
+                  activeTab === item.id ? 'scale-110' : 'group-hover:scale-110'
+                }`} />
                 {!sidebarCollapsed && (
                   <>
                     <span className="flex-1">{item.label}</span>
-                    {item.id === 'notifications' && notifications.filter(n => !n.read).length > 0 && (
-                      <Badge variant="destructive" className="ml-2 text-xs px-1.5 py-0.5">
+                    {item.id === 'messages' && notifications.filter(n => !n.read).length > 0 && (
+                      <Badge className="ml-2 text-xs px-2 py-0.5 bg-red-500 text-white animate-pulse">
                         {notifications.filter(n => !n.read).length}
                       </Badge>
                     )}
@@ -1355,22 +1359,22 @@ function App() {
         </nav>
         
         {/* User Profile Section */}
-        <div className="border-t border-gray-200 p-4">
+        <div className="border-t border-slate-700/50 p-4 bg-slate-800/30">
           <div className="flex items-center mb-3">
-            <Avatar className="h-10 w-10 mr-3">
-              <AvatarFallback className="bg-blue-100 text-blue-700 font-medium">
+            <Avatar className="h-10 w-10 mr-3 ring-2 ring-blue-400/50">
+              <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white font-medium">
                 {user.name.charAt(0)}
               </AvatarFallback>
             </Avatar>
             {!sidebarCollapsed && (
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate">{user.name}</p>
+                <p className="text-sm font-medium text-white truncate">{user.name}</p>
                 <div className="flex items-center space-x-1">
-                  <Badge variant="secondary" className="text-xs capitalize">
+                  <Badge className="text-xs capitalize bg-blue-500/20 text-blue-300 border-blue-400/30">
                     {user.role === 'school_admin' ? 'Admin' : user.role}
                   </Badge>
                   {user.role === 'developer' && (
-                    <Crown className="h-3 w-3 text-yellow-500" />
+                    <Crown className="h-3 w-3 text-yellow-400" />
                   )}
                 </div>
               </div>
@@ -1380,7 +1384,7 @@ function App() {
             onClick={handleLogout}
             variant="outline"
             size="sm"
-            className={`${sidebarCollapsed ? 'w-10 h-10 p-0' : 'w-full'} justify-center`}
+            className={`${sidebarCollapsed ? 'w-10 h-10 p-0' : 'w-full'} justify-center bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500 hover:text-white hover:border-red-500 transition-all`}
             title={sidebarCollapsed ? 'Logout' : ''}
           >
             <LogOut className="h-4 w-4" />
@@ -1392,21 +1396,24 @@ function App() {
       {/* Main content area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top bar */}
-        <div className="bg-white shadow-sm border-b border-gray-200 h-16 flex items-center justify-between px-4 lg:px-6">
+        <div className="bg-white shadow-md h-16 flex items-center justify-between px-4 lg:px-6 border-b border-gray-100">
           <div className="flex items-center">
             <button
               onClick={() => setSidebarOpen(true)}
-              className="lg:hidden text-gray-400 hover:text-gray-600 mr-4 p-2"
+              className="lg:hidden text-gray-600 hover:text-gray-900 mr-4 p-2 rounded-xl hover:bg-gray-100 transition-all"
             >
               <Menu className="h-5 w-5" />
             </button>
             
             <div className="flex items-center space-x-3">
-              <h1 className="text-lg font-semibold text-gray-900 capitalize">
-                {activeTab.replace('-', ' ')}
-              </h1>
+              <div className="flex items-center space-x-2">
+                <div className="h-8 w-1 bg-gradient-to-b from-blue-500 to-purple-600 rounded-full"></div>
+                <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent capitalize">
+                  {activeTab.replace('-', ' ')}
+                </h1>
+              </div>
               {user.role !== 'developer' && school && (
-                <Badge variant="outline" className="text-xs">
+                <Badge className="text-xs bg-gradient-to-r from-blue-50 to-purple-50 text-blue-700 border border-blue-200">
                   {school.name}
                 </Badge>
               )}
@@ -1414,48 +1421,53 @@ function App() {
           </div>
           
           <div className="flex items-center space-x-3">
-            {user.role === 'school_admin' && (
-              <BroadcastNotification
+            <div className="flex items-center space-x-2">
+              {user.role === 'school_admin' && (
+                <BroadcastNotification
+                  currentUser={user}
+                  trigger={
+                    <Button className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-md hover:shadow-lg transition-all" size="sm">
+                      <Megaphone className="h-4 w-4 mr-2" />
+                      Broadcast
+                    </Button>
+                  }
+                />
+              )}
+              <NotificationCenter
                 currentUser={user}
-                trigger={
-                  <Button variant="outline" size="sm">
-                    <Megaphone className="h-4 w-4 mr-2" />
-                    Broadcast
-                  </Button>
-                }
+                isOpen={false}
+                onToggle={() => {}}
               />
-            )}
-            <NotificationCenter
-              currentUser={user}
-              isOpen={false}
-              onToggle={() => {}}
-            />
-            <button
-              onClick={() => document.querySelector('[data-puter-trigger]')?.click()}
-              className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-              title="AI Assistant"
-            >
-              <Bot className="h-5 w-5 text-gray-600" />
-            </button>
-            <button
-              onClick={() => setShowCalculator(true)}
-              className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-              title="Calculator"
-            >
-              <Calculator className="h-5 w-5 text-gray-600" />
-            </button>
-            
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="flex items-center space-x-2 p-1 rounded-lg hover:bg-gray-100 transition-colors">
-                  <Avatar className="h-8 w-8">
-                    <AvatarFallback className="bg-blue-100 text-blue-700 font-medium text-sm">
-                      {user.name.charAt(0)}
-                    </AvatarFallback>
-                  </Avatar>
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
+              <button
+                onClick={() => document.querySelector('[data-puter-trigger]')?.click()}
+                className="p-2.5 rounded-xl hover:bg-gradient-to-br hover:from-blue-50 hover:to-purple-50 transition-all text-gray-600 hover:text-blue-600 group"
+                title="AI Assistant"
+              >
+                <Bot className="h-5 w-5 group-hover:scale-110 transition-transform" />
+              </button>
+              <button
+                onClick={() => setShowCalculator(true)}
+                className="p-2.5 rounded-xl hover:bg-gradient-to-br hover:from-blue-50 hover:to-purple-50 transition-all text-gray-600 hover:text-purple-600 group"
+                title="Calculator"
+              >
+                <Calculator className="h-5 w-5 group-hover:scale-110 transition-transform" />
+              </button>
+              
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="flex items-center space-x-3 p-1.5 rounded-xl hover:bg-gradient-to-br hover:from-blue-50 hover:to-purple-50 transition-all group">
+                    <Avatar className="h-9 w-9 ring-2 ring-gray-200 group-hover:ring-blue-400 transition-all">
+                      <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white font-semibold text-sm">
+                        {user.name.charAt(0)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="hidden md:block text-left">
+                      <p className="text-sm font-semibold text-gray-900">{user.name}</p>
+                      <p className="text-xs text-gray-500 capitalize">{user.role === 'school_admin' ? 'Admin' : user.role}</p>
+                    </div>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel>
                   <div className="flex flex-col space-y-1">
                     <p className="text-sm font-medium">{user.name}</p>
@@ -1480,6 +1492,7 @@ function App() {
             </DropdownMenu>
           </div>
         </div>
+      </div>
         
         {/* Content area - with proper scrolling */}
         <div className="flex-1 overflow-auto p-4 lg:p-6">
