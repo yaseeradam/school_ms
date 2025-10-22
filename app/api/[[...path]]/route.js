@@ -184,9 +184,13 @@ export async function GET(request, { params }) {
         if (!userDataAssign || !hasPermission(userDataAssign.role, ['school_admin', 'teacher'])) {
           return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
-        const teacherId = searchParams.get('teacherId') || userDataAssign.id
+        const teacherIdParam = searchParams.get('teacherId')
+        const assignQuery = { schoolId: userDataAssign.schoolId }
+        if (teacherIdParam) {
+          assignQuery.teacherId = teacherIdParam
+        }
         const assignments = await db.collection('teacher_assignments')
-          .find({ teacherId, schoolId: userDataAssign.schoolId })
+          .find(assignQuery)
           .toArray()
         return NextResponse.json(assignments)
       
