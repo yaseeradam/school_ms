@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, MessageCircle } from 'lucide-react'
 import ConversationList from './ConversationList'
 import ChatWindow from './ChatWindow'
 import socketManager from '@/lib/socket-client'
@@ -38,57 +38,38 @@ export default function MessagesPage({ currentUser, onBack }) {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <Button variant="ghost" size="icon" onClick={onBack}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <h1 className="text-2xl font-bold text-gray-900">Messages</h1>
-          <div className={`h-2 w-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-        </div>
+    <div className="flex h-full overflow-hidden bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      {/* Conversations List */}
+      <div className={`${selectedConversation ? 'hidden lg:block' : 'block'} w-full lg:w-80 border-r border-gray-200/50 bg-white/70 backdrop-blur-sm`}>
+        <ConversationList
+          onSelectConversation={handleSelectConversation}
+          selectedConversationId={selectedConversation?.id}
+          currentUser={currentUser}
+        />
       </div>
 
-      {/* Content */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Conversations List */}
-        <div className={`${selectedConversation ? 'hidden lg:block' : 'block'} w-full lg:w-80 bg-white border-r`}>
-          <ConversationList
-            onSelectConversation={handleSelectConversation}
-            selectedConversationId={selectedConversation?.id}
+      {/* Chat Window */}
+      <div className={`${selectedConversation ? 'block' : 'hidden lg:block'} flex-1 bg-white`}>
+        {selectedConversation ? (
+          <ChatWindow
+            conversation={selectedConversation}
+            onClose={handleCloseChat}
             currentUser={currentUser}
           />
-        </div>
-
-        {/* Chat Window */}
-        <div className={`${selectedConversation ? 'block' : 'hidden lg:block'} flex-1 bg-white`}>
-          {selectedConversation ? (
-            <div className="h-full flex flex-col">
-              {/* Mobile back button */}
-              <div className="lg:hidden p-4 border-b">
-                <Button variant="ghost" size="sm" onClick={handleCloseChat}>
-                  ← Back to Messages
-                </Button>
+        ) : (
+          <div className="h-full flex items-center justify-center">
+            <div className="text-center">
+              <div className="mb-6 relative">
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-400 blur-3xl opacity-20 rounded-full"></div>
+                <div className="relative p-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-3xl shadow-2xl">
+                  <MessageCircle className="h-16 w-16 text-white" />
+                </div>
               </div>
-              <div className="flex-1">
-                <ChatWindow
-                  conversation={selectedConversation}
-                  onClose={handleCloseChat}
-                  currentUser={currentUser}
-                />
-              </div>
+              <h3 className="text-2xl font-bold text-gray-800 mb-2">Your Messages</h3>
+              <p className="text-gray-600">Select a conversation to start chatting</p>
             </div>
-          ) : (
-            <div className="h-full flex items-center justify-center text-gray-500">
-              <div className="text-center">
-                <div className="text-6xl mb-4">💬</div>
-                <h3 className="text-xl font-medium mb-2">Select a conversation</h3>
-                <p>Choose a conversation from the list to start messaging</p>
-              </div>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   )

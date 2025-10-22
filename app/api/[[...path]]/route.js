@@ -356,48 +356,58 @@ export async function POST(request, { params }) {
         return NextResponse.json({ message: 'Developer account created successfully' })
       
       case 'auth/login':
-        const { email, password } = body
-        
-        if (!email || !password) {
-          return NextResponse.json({ error: 'Email and password required' }, { status: 400 })
-        }
-        
-        const user = await db.collection('users').findOne({ email })
-        if (!user || !await bcrypt.compare(password, user.password)) {
-          return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
-        }
-        
-        // Get school info if user is not developer
-        let schoolInfo = null
-        if (user.role !== 'developer' && user.schoolId) {
-          const school = await db.collection('schools').findOne({ id: user.schoolId })
-          if (school) {
-            schoolInfo = {
-              id: school.id,
-              name: school.name,
-              logo: school.logo,
-              theme: school.theme
+        try {
+          const { email, password } = body
+          
+          if (!email || !password) {
+            return NextResponse.json({ error: 'Email and password required' }, { status: 400 })
+          }
+          
+          const user = await db.collection('users').findOne({ email })
+          if (!user) {
+            return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
+          }
+          
+          const passwordMatch = await bcrypt.compare(password, user.password)
+          if (!passwordMatch) {
+            return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
+          }
+          
+          // Get school info if user is not developer
+          let schoolInfo = null
+          if (user.role !== 'developer' && user.schoolId) {
+            const school = await db.collection('schools').findOne({ id: user.schoolId })
+            if (school) {
+              schoolInfo = {
+                id: school.id,
+                name: school.name,
+                logo: school.logo,
+                theme: school.theme
+              }
             }
           }
+          
+          const token = jwt.sign(
+            { 
+              id: user.id, 
+              email: user.email, 
+              role: user.role,
+              schoolId: user.schoolId || null
+            },
+            JWT_SECRET,
+            { expiresIn: '24h' }
+          )
+          
+          const { password: _, ...userWithoutPassword } = user
+          return NextResponse.json({ 
+            user: userWithoutPassword, 
+            token,
+            school: schoolInfo
+          })
+        } catch (loginError) {
+          console.error('Login error:', loginError)
+          return NextResponse.json({ error: 'Login failed: ' + loginError.message }, { status: 500 })
         }
-        
-        const token = jwt.sign(
-          { 
-            id: user.id, 
-            email: user.email, 
-            role: user.role,
-            schoolId: user.schoolId || null
-          },
-          JWT_SECRET,
-          { expiresIn: '24h' }
-        )
-        
-        const { password: _, ...userWithoutPassword } = user
-        return NextResponse.json({ 
-          user: userWithoutPassword, 
-          token,
-          school: schoolInfo
-        })
       
       // Master/Developer routes
       case 'master/schools':

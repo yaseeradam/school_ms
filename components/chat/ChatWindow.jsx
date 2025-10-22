@@ -454,13 +454,19 @@ function ChatWindow({ conversation, onClose, currentUser }) {
           </div>
           <div>
             <h3 className="font-semibold text-base">
-              {conversation.type === 'group' ? conversation.name : (otherUserInfo?.name || 'Chat')}
+              {conversation.type === 'group' ? conversation.name : (otherUserInfo?.name || 'Loading...')}
             </h3>
             <div className="flex items-center space-x-2 text-xs text-gray-500">
               {conversation.type === 'private' && (
                 <>
                   {typingUsers.length > 0 ? (
                     <span className="text-blue-500 italic">typing...</span>
+                  ) : messages.length > 0 ? (
+                    <span className="truncate max-w-[200px]">
+                      {messages[messages.length - 1].messageType === 'image' ? '📷 Photo' : 
+                       messages[messages.length - 1].messageType === 'file' ? '📎 File' :
+                       messages[messages.length - 1].content}
+                    </span>
                   ) : (
                     <span className={isOnline ? 'text-green-600' : ''}>
                       {isOnline ? 'Active now' : formatLastSeen(lastSeen)}
@@ -529,7 +535,7 @@ function ChatWindow({ conversation, onClose, currentUser }) {
         </div>
       </div>
 
-      <div className="flex-1 overflow-hidden bg-gray-50">
+      <div className="flex-1 overflow-hidden bg-gray-50" style={{ height: 'calc(100vh - 180px)' }}>
         <ScrollArea className="h-full p-4">
           <div className="space-y-2">
             {messages.map((message) => {

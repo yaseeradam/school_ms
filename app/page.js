@@ -59,8 +59,12 @@ import {
   MessageCircle,
   ChevronLeft,
   ChevronRight,
-  Download
+  Download,
+  Calculator,
+  Bot
 } from 'lucide-react'
+import CalculatorApp from '@/components/calculator/calculator'
+import PuterAI from '@/components/ai/PuterAI'
 import { exportStudentsToCSV, exportTeachersToCSV, exportParentsToCSV } from '@/lib/csv-export'
 
 function App() {
@@ -938,7 +942,6 @@ function App() {
   const getNavigationItems = () => {
     const baseItems = [
       { id: 'dashboard', label: 'Dashboard', icon: Home },
-      { id: 'notifications', label: 'Notifications', icon: Bell },
       { id: 'messages', label: 'Messages', icon: MessageCircle }
     ]
     
@@ -1220,6 +1223,14 @@ function App() {
               isOpen={false}
               onToggle={() => {}}
             />
+            <button
+              onClick={() => document.querySelector('[data-puter-trigger]')?.click()}
+              className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+              title="AI Assistant"
+            >
+              <Bot className="h-5 w-5 text-gray-600" />
+            </button>
+            <CalculatorApp />
             {user.role === 'school_admin' && activeTab !== 'school-settings' && (
               <Button
                 variant="outline"
@@ -3566,12 +3577,10 @@ function App() {
 
           {/* Messages Tab */}
           {activeTab === 'messages' && (
-            <div className="fixed inset-0 z-50">
-              <MessagesPage
-                currentUser={user}
-                onBack={() => setActiveTab('dashboard')}
-              />
-            </div>
+            <MessagesPage
+              currentUser={user}
+              onBack={() => setActiveTab('dashboard')}
+            />
           )}
 
           {/* Placeholder for other tabs */}
@@ -3585,7 +3594,9 @@ function App() {
         </div>
       </div>
 
-
+      <div data-puter-ai>
+        <PuterAI />
+      </div>
     </div>
   )
 }

@@ -1,4 +1,3 @@
-
 // ConversationList.jsx
 'use client'
 
@@ -12,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import {
-  MessageCircle, Users, User, Plus, Search, Clock, Check, CheckCheck
+  MessageCircle, Users, User, Plus, Search, Clock, Check, CheckCheck, MessageSquare
 } from 'lucide-react'
 import socketManager from '@/lib/socket-client'
 
@@ -52,6 +51,13 @@ function ConversationList({ onSelectConversation, selectedConversationId, curren
 
     const handleNewConversation = (conversation) => {
       setConversations(prev => [conversation, ...prev])
+      // Load profile for new conversation immediately
+      if (conversation.type === 'private') {
+        const otherUserId = conversation.participants?.find(p => p !== currentUser.id)
+        if (otherUserId) {
+          loadSingleUserProfile(otherUserId)
+        }
+      }
     }
 
     socketManager.on('conversation_updated', handleConversationUpdate)
@@ -61,13 +67,28 @@ function ConversationList({ onSelectConversation, selectedConversationId, curren
       socketManager.off('conversation_updated', handleConversationUpdate)
       socketManager.off('new_conversation', handleNewConversation)
     }
-  }, [])
+  }, [currentUser.id])
 
   useEffect(() => {
     if (conversations.length > 0) {
       loadUserProfiles()
     }
   }, [conversations])
+
+  const loadSingleUserProfile = async (userId) => {
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`/api/chat/user-info?userId=${userId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      if (response.ok) {
+        const data = await response.json()
+        setUserProfiles(prev => ({ ...prev, [userId]: data }))
+      }
+    } catch (error) {
+      console.error(`Error loading profile for user ${userId}:`, error)
+    }
+  }
 
   const loadUserProfiles = async () => {
     try {
@@ -82,7 +103,7 @@ function ConversationList({ onSelectConversation, selectedConversationId, curren
       })
 
       const profiles = {}
-      for (const userId of userIds) {
+      const profilePromises = Array.from(userIds).map(async (userId) => {
         try {
           const response = await fetch(`/api/chat/user-info?userId=${userId}`, {
             headers: { 'Authorization': `Bearer ${token}` }
@@ -94,9 +115,10 @@ function ConversationList({ onSelectConversation, selectedConversationId, curren
         } catch (error) {
           console.error(`Error loading profile for user ${userId}:`, error)
         }
-      }
-      
-      setUserProfiles(profiles)
+      })
+
+      await Promise.all(profilePromises)
+      setUserProfiles(prev => ({ ...prev, ...profiles }))
     } catch (error) {
       console.error('Error loading user profiles:', error)
     }
@@ -213,6 +235,10 @@ function ConversationList({ onSelectConversation, selectedConversationId, curren
       if (response.ok) {
         const conversation = await response.json()
         setConversations(prev => [conversation, ...prev])
+        
+        // Load the user profile immediately
+        await loadSingleUserProfile(newChatForm.targetUserId)
+        
         onSelectConversation(conversation)
         setShowNewChatDialog(false)
         setNewChatForm({ targetUserId: '', initialMessage: '' })
@@ -307,8 +333,15 @@ function ConversationList({ onSelectConversation, selectedConversationId, curren
       return conversation.name
     } else {
       const otherUserId = conversation.participants?.find(p => p !== currentUser.id)
+      if (!otherUserId) return 'Private Chat'
+      
       const profile = userProfiles[otherUserId]
-      return profile?.name || 'Private Chat'
+      if (profile?.name) {
+        return profile.name
+      }
+      
+      // If profile not loaded yet, show loading state
+      return 'Loading...'
     }
   }
 
@@ -349,10 +382,10 @@ function ConversationList({ onSelectConversation, selectedConversationId, curren
   }
 
   return (
-    <div className="flex flex-col h-full bg-white">
-      <div className="p-4 border-b">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-2xl font-bold">Chats</h2>
+    <div className="flex flex-col h-full">
+      <div className="p-4 border-b border-gray-200/50 bg-gradient-to-r from-blue-50 to-purple-50">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold text-gray-800">Conversations</h2>
           <div className="flex space-x-2">
             {currentUser.role !== 'developer' && (
               <Dialog open={showNewChatDialog} onOpenChange={setShowNewChatDialog}>
@@ -496,12 +529,12 @@ function ConversationList({ onSelectConversation, selectedConversationId, curren
         </div>
 
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
-            placeholder="Search Messenger"
+            placeholder="Search conversations..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 rounded-full bg-gray-100 border-0"
+            className="pl-11 rounded-2xl bg-white border-gray-200 shadow-sm focus:ring-2 focus:ring-blue-500/20"
           />
         </div>
       </div>
@@ -510,52 +543,61 @@ function ConversationList({ onSelectConversation, selectedConversationId, curren
         <ScrollArea className="h-full">
           <div className="space-y-1 p-2">
             {filteredConversations.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <MessageCircle className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                <p>No conversations yet</p>
-                <p className="text-sm">Start a new chat to get connected</p>
+              <div className="text-center py-12 px-4">
+                <div className="mb-4 relative inline-block">
+                  <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-400 blur-2xl opacity-20 rounded-full"></div>
+                  <div className="relative p-6 bg-gradient-to-br from-blue-100 to-purple-100 rounded-2xl">
+                    <MessageSquare className="h-12 w-12 text-blue-600" />
+                  </div>
+                </div>
+                <p className="font-medium text-gray-700">No conversations yet</p>
+                <p className="text-sm text-gray-500 mt-1">Start a new chat to get connected</p>
               </div>
             ) : (
               filteredConversations.map((conversation) => (
                 <button
                   key={conversation.id}
                   onClick={() => onSelectConversation(conversation)}
-                  className={`w-full p-3 text-left hover:bg-gray-100 transition-colors relative ${
-                    selectedConversationId === conversation.id ? 'bg-gray-100' : ''
+                  className={`w-full p-3 rounded-xl text-left transition-all duration-200 relative group ${
+                    selectedConversationId === conversation.id 
+                      ? 'bg-gradient-to-r from-blue-50 to-purple-50 shadow-md scale-[0.98]' 
+                      : 'hover:bg-gray-50 hover:shadow-sm'
                   }`}
                 >
                   <div className="flex items-center space-x-3">
                     <div className="relative">
-                      <Avatar className="h-14 w-14">
-                        <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-500 text-white">
+                      <Avatar className="h-12 w-12 ring-2 ring-white shadow-md">
+                        <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white font-semibold text-lg">
                           {getConversationAvatar(conversation)}
                         </AvatarFallback>
                       </Avatar>
                       {conversation.type === 'private' && getUserOnlineStatus(conversation) && (
-                        <div className="absolute bottom-0 right-0 h-4 w-4 bg-green-500 border-2 border-white rounded-full"></div>
+                        <div className="absolute bottom-0 right-0 h-3.5 w-3.5 bg-green-500 border-2 border-white rounded-full animate-pulse"></div>
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between mb-1">
                         <h3 className={`text-sm truncate ${
-                          conversation.unreadCount > 0 ? 'font-semibold' : 'font-normal'
+                          conversation.unreadCount > 0 ? 'font-bold text-gray-900' : 'font-semibold text-gray-700'
                         }`}>
                           {getConversationDisplayName(conversation)}
                         </h3>
                         {conversation.lastMessageAt && (
-                          <span className="text-xs text-gray-500 ml-2">
+                          <span className={`text-xs ml-2 ${
+                            conversation.unreadCount > 0 ? 'text-blue-600 font-medium' : 'text-gray-500'
+                          }`}>
                             {formatLastMessageTime(conversation.lastMessageAt)}
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center justify-between mt-1">
-                        <p className={`text-sm truncate ${
-                          conversation.unreadCount > 0 ? 'font-medium text-gray-900' : 'text-gray-600'
+                      <div className="flex items-center justify-between">
+                        <p className={`text-xs truncate ${
+                          conversation.unreadCount > 0 ? 'font-medium text-gray-800' : 'text-gray-500'
                         }`}>
                           {getLastMessage(conversation)}
                         </p>
                         {conversation.unreadCount > 0 && (
-                          <Badge className="ml-2 bg-blue-500 text-white">
+                          <Badge className="ml-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white text-xs px-2 py-0.5 shadow-sm">
                             {conversation.unreadCount}
                           </Badge>
                         )}
