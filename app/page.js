@@ -125,25 +125,29 @@ function App() {
       qualification: '',
       experience: '',
       specialization: '',
-      dateOfJoining: ''
+      dateOfJoining: '',
+      photo: ''
     },
     credentials: {
       email: '',
       password: ''
     }
   })
+  const [teacherPhotoPreview, setTeacherPhotoPreview] = useState('')
   
   const [parentForm, setParentForm] = useState({
     parentData: {
       name: '',
       phoneNumber: '',
-      address: ''
+      address: '',
+      photo: ''
     },
     parentCredentials: {
       email: '',
       password: ''
     }
   })
+  const [parentPhotoPreview, setParentPhotoPreview] = useState('')
   
   const [studentForm, setStudentForm] = useState({
     firstName: '',
@@ -156,8 +160,10 @@ function App() {
     parentId: '',
     classId: '',
     admissionNumber: '',
-    emergencyContact: ''
+    emergencyContact: '',
+    photo: ''
   })
+  const [studentPhotoPreview, setStudentPhotoPreview] = useState('')
   
   const [classForm, setClassForm] = useState({
     name: '',
@@ -408,6 +414,45 @@ function App() {
       
       return matchesSearch && matchesChildrenCount && matchesStatus
     })
+  }
+
+  // Handle photo upload
+  const handlePhotoUpload = (e, formType) => {
+    const file = e.target.files[0]
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file')
+      return
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image size should be less than 5MB')
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onloadend = () => {
+      const base64String = reader.result
+      
+      if (formType === 'student') {
+        setStudentPhotoPreview(base64String)
+        setStudentForm(prev => ({ ...prev, photo: base64String }))
+      } else if (formType === 'teacher') {
+        setTeacherPhotoPreview(base64String)
+        setTeacherForm(prev => ({
+          ...prev,
+          teacherData: { ...prev.teacherData, photo: base64String }
+        }))
+      } else if (formType === 'parent') {
+        setParentPhotoPreview(base64String)
+        setParentForm(prev => ({
+          ...prev,
+          parentData: { ...prev.parentData, photo: base64String }
+        }))
+      }
+    }
+    reader.readAsDataURL(file)
   }
 
   // Handle parent payment processing
@@ -775,13 +820,15 @@ function App() {
           qualification: '',
           experience: '',
           specialization: '',
-          dateOfJoining: ''
+          dateOfJoining: '',
+          photo: ''
         },
         credentials: {
           email: '',
           password: ''
         }
       })
+      setTeacherPhotoPreview('')
       loadDashboardData()
     } catch (error) {
       // Error already handled in apiCall
@@ -814,13 +861,15 @@ function App() {
         parentData: {
           name: '',
           phoneNumber: '',
-          address: ''
+          address: '',
+          photo: ''
         },
         parentCredentials: {
           email: '',
           password: ''
         }
       })
+      setParentPhotoPreview('')
       loadDashboardData()
     } catch (error) {
       // Error already handled in apiCall
@@ -860,8 +909,10 @@ function App() {
         parentId: '',
         classId: '',
         admissionNumber: '',
-        emergencyContact: ''
+        emergencyContact: '',
+        photo: ''
       })
+      setStudentPhotoPreview('')
       loadDashboardData()
     } catch (error) {
       // Error already handled in apiCall
@@ -1434,253 +1485,131 @@ function App() {
         <div className="flex-1 overflow-auto p-4 lg:p-6">
           {/* Dashboard */}
           {activeTab === 'dashboard' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              {user.role === 'developer' && (
-                <>
-                  <Card className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-blue-500 bg-white">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium text-gray-900">Total Schools</CardTitle>
-                      <Building2 className="h-4 w-4 text-blue-600" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold text-gray-900">{stats.totalSchools || 0}</div>
-                      <div className="flex items-center text-xs mt-2">
-                        <TrendingUp className="h-3 w-3 text-green-600 mr-1" />
-                        <span className="text-green-600 font-medium">+8%</span>
-                        <span className="text-gray-600 ml-1">vs last month</span>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-green-500 bg-white">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium text-gray-900">Active Schools</CardTitle>
-                      <Shield className="h-4 w-4 text-green-600" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold text-gray-900">{stats.activeSchools || 0}</div>
-                      <div className="flex items-center justify-between mt-2">
-                        <div className="flex items-center text-xs">
-                          <TrendingUp className="h-3 w-3 text-green-600 mr-1" />
-                          <span className="text-green-600 font-medium">+12%</span>
-                          <span className="text-gray-600 ml-1">vs last month</span>
-                        </div>
-                        <Button size="sm" variant="outline" className="text-xs px-2 py-1 h-6">
-                          <Activity className="h-3 w-3 mr-1" />
-                          View
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-purple-500 bg-white">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium text-gray-900">Total Users</CardTitle>
-                      <Users className="h-4 w-4 text-purple-600" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold text-gray-900">{stats.totalUsers || 0}</div>
-                      <div className="flex items-center justify-between mt-2">
-                        <div className="flex items-center text-xs">
-                          <TrendingUp className="h-3 w-3 text-green-600 mr-1" />
-                          <span className="text-green-600 font-medium">+15%</span>
-                          <span className="text-gray-600 ml-1">vs last month</span>
-                        </div>
-                        <Button size="sm" variant="outline" className="text-xs px-2 py-1 h-6">
-                          <BarChart3 className="h-3 w-3 mr-1" />
-                          Analytics
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </>
-              )}
-
-              {user.role === 'school_admin' && (
-                <>
-                  <Card className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-blue-500 bg-white">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium text-gray-900">Total Students</CardTitle>
-                      <Users className="h-4 w-4 text-blue-600" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold text-gray-900">{stats.totalStudents || 0}</div>
-                      <div className="flex items-center text-xs mt-2">
-                        <TrendingUp className="h-3 w-3 text-green-600 mr-1" />
-                        <span className="text-green-600 font-medium">+5%</span>
-                        <span className="text-gray-600 ml-1">vs last month</span>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-amber-500 bg-white">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium text-gray-900">Broadcast Message</CardTitle>
-                      <Megaphone className="h-4 w-4 text-amber-600" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-sm text-gray-700 mb-3">
-                        Send announcements to teachers, parents, or all users
-                      </div>
-                      <BroadcastNotification
-                        currentUser={user}
-                        trigger={
-                          <Button size="sm" className="w-full">
-                            <Megaphone className="h-4 w-4 mr-2" />
-                            Send Broadcast
-                          </Button>
-                        }
-                      />
-                    </CardContent>
-                  </Card>
-
-                  <Card className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-emerald-500 bg-white">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium text-gray-900">Total Teachers</CardTitle>
-                      <UserCheck className="h-4 w-4 text-emerald-600" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold text-gray-900">{stats.totalTeachers || 0}</div>
-                      <div className="flex items-center text-xs mt-2">
-                        <TrendingUp className="h-3 w-3 text-green-600 mr-1" />
-                        <span className="text-green-600 font-medium">+2%</span>
-                        <span className="text-gray-600 ml-1">vs last month</span>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-purple-500 bg-white">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium text-gray-900">Total Parents</CardTitle>
-                      <Users2 className="h-4 w-4 text-purple-600" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold text-gray-900">{stats.totalParents || 0}</div>
-                      <div className="flex items-center text-xs mt-2">
-                        <TrendingUp className="h-3 w-3 text-green-600 mr-1" />
-                        <span className="text-green-600 font-medium">+7%</span>
-                        <span className="text-gray-600 ml-1">vs last month</span>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-orange-500 bg-white">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium text-gray-900">Total Classes</CardTitle>
-                      <School className="h-4 w-4 text-orange-600" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold text-gray-900">{stats.totalClasses || 0}</div>
-                      <div className="flex items-center text-xs mt-2">
-                        <TrendingUp className="h-3 w-3 text-green-600 mr-1" />
-                        <span className="text-green-600 font-medium">+3%</span>
-                        <span className="text-gray-600 ml-1">vs last month</span>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-teal-500 bg-white">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium text-gray-900">New Enrollments</CardTitle>
-                      <UserPlus className="h-4 w-4 text-teal-600" />
-                    </CardHeader>
-                    <CardContent>
-                      {stats.newEnrollments && <NewEnrollmentsChart data={stats.newEnrollments} />}
-                    </CardContent>
-                  </Card>
-
-
-                </>
-              )}
-
-              {user.role === 'teacher' && (
-                <>
-                  <Card className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-indigo-500 bg-white">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium text-gray-900">My Assignments</CardTitle>
-                      <BookOpen className="h-4 w-4 text-indigo-600" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold text-gray-900">{stats.myAssignments || 0}</div>
-                      <div className="flex items-center justify-between mt-2">
-                        <div className="flex items-center text-xs">
-                          <TrendingUp className="h-3 w-3 text-green-600 mr-1" />
-                          <span className="text-green-600 font-medium">+1</span>
-                          <span className="text-gray-500 ml-1">this week</span>
-                        </div>
-                        <Button size="sm" variant="outline" className="text-xs px-2 py-1 h-6">
-                          <Eye className="h-3 w-3 mr-1" />
-                          View
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-orange-500 bg-white">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium text-gray-900">My Classes</CardTitle>
-                      <School className="h-4 w-4 text-orange-600" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold text-gray-900">{stats.myClasses || 0}</div>
-                      <div className="flex items-center justify-between mt-2">
-                        <div className="flex items-center text-xs">
-                          <Minus className="h-3 w-3 text-gray-500 mr-1" />
-                          <span className="text-gray-500 font-medium">No change</span>
-                        </div>
-                        <Button size="sm" variant="outline" className="text-xs px-2 py-1 h-6">
-                          <Calendar className="h-3 w-3 mr-1" />
-                          Schedule
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-cyan-500 bg-white">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium text-gray-900">Students in My Classes</CardTitle>
-                      <Users className="h-4 w-4 text-cyan-600" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold text-gray-900">{stats.totalStudentsInMyClasses || 0}</div>
-                      <div className="flex items-center justify-between mt-2">
-                        <div className="flex items-center text-xs">
-                          <TrendingUp className="h-3 w-3 text-green-600 mr-1" />
-                          <span className="text-green-600 font-medium">+3</span>
-                          <span className="text-gray-500 ml-1">new students</span>
-                        </div>
-                        <Button size="sm" variant="outline" className="text-xs px-2 py-1 h-6">
-                          <Users className="h-3 w-3 mr-1" />
-                          Manage
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </>
-              )}
-
-              {user.role === 'parent' && (
-                <Card className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-pink-500 bg-white">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-gray-900">My Children</CardTitle>
-                    <Users className="h-4 w-4 text-pink-600" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold text-gray-900">{stats.myChildren || 0}</div>
-                    <div className="flex items-center justify-between mt-2">
-                      <div className="flex items-center text-xs">
-                        <TrendingUp className="h-3 w-3 text-green-600 mr-1" />
-                        <span className="text-green-600 font-medium">All active</span>
-                        <span className="text-gray-500 ml-1">this term</span>
-                      </div>
-                      <Button size="sm" variant="outline" className="text-xs px-2 py-1 h-6">
-                        <Eye className="h-3 w-3 mr-1" />
-                        View Details
-                      </Button>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {/* Students Card */}
+              <Card className="group hover:shadow-2xl transition-all duration-300 border-0 bg-gradient-to-br from-blue-50 to-blue-100 overflow-hidden relative">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-blue-200 rounded-full -mr-16 -mt-16 opacity-50 group-hover:scale-150 transition-transform duration-500"></div>
+                <CardHeader className="relative z-10">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="p-4 bg-blue-500 rounded-2xl shadow-lg group-hover:scale-110 transition-transform duration-300">
+                      <Users className="h-8 w-8 text-white" />
                     </div>
-                  </CardContent>
-                </Card>
-              )}
+                    <Badge className="bg-blue-500 text-white px-3 py-1 text-xs font-semibold">
+                      Active
+                    </Badge>
+                  </div>
+                  <CardTitle className="text-3xl font-bold text-blue-900 mb-2">
+                    {stats.totalStudents || 0}
+                  </CardTitle>
+                  <CardDescription className="text-blue-700 font-medium text-lg">
+                    Total Students
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="relative z-10">
+                  <div className="flex items-center justify-between pt-4 border-t border-blue-200">
+                    <div className="flex items-center space-x-2">
+                      <TrendingUp className="h-4 w-4 text-green-600" />
+                      <span className="text-sm font-semibold text-green-600">+5% this month</span>
+                    </div>
+                    {user.role === 'school_admin' && (
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        className="text-blue-700 hover:bg-blue-200"
+                        onClick={() => setActiveTab('students')}
+                      >
+                        View All
+                        <Eye className="h-4 w-4 ml-2" />
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Teachers Card */}
+              <Card className="group hover:shadow-2xl transition-all duration-300 border-0 bg-gradient-to-br from-emerald-50 to-emerald-100 overflow-hidden relative">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-200 rounded-full -mr-16 -mt-16 opacity-50 group-hover:scale-150 transition-transform duration-500"></div>
+                <CardHeader className="relative z-10">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="p-4 bg-emerald-500 rounded-2xl shadow-lg group-hover:scale-110 transition-transform duration-300">
+                      <UserCheck className="h-8 w-8 text-white" />
+                    </div>
+                    <Badge className="bg-emerald-500 text-white px-3 py-1 text-xs font-semibold">
+                      Active
+                    </Badge>
+                  </div>
+                  <CardTitle className="text-3xl font-bold text-emerald-900 mb-2">
+                    {stats.totalTeachers || 0}
+                  </CardTitle>
+                  <CardDescription className="text-emerald-700 font-medium text-lg">
+                    Total Teachers
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="relative z-10">
+                  <div className="flex items-center justify-between pt-4 border-t border-emerald-200">
+                    <div className="flex items-center space-x-2">
+                      <TrendingUp className="h-4 w-4 text-green-600" />
+                      <span className="text-sm font-semibold text-green-600">+2% this month</span>
+                    </div>
+                    {user.role === 'school_admin' && (
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        className="text-emerald-700 hover:bg-emerald-200"
+                        onClick={() => setActiveTab('teachers')}
+                      >
+                        View All
+                        <Eye className="h-4 w-4 ml-2" />
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Unread Messages Card */}
+              <Card className="group hover:shadow-2xl transition-all duration-300 border-0 bg-gradient-to-br from-purple-50 to-purple-100 overflow-hidden relative">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-purple-200 rounded-full -mr-16 -mt-16 opacity-50 group-hover:scale-150 transition-transform duration-500"></div>
+                <CardHeader className="relative z-10">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="p-4 bg-purple-500 rounded-2xl shadow-lg group-hover:scale-110 transition-transform duration-300 relative">
+                      <MessageCircle className="h-8 w-8 text-white" />
+                      {notifications.filter(n => !n.read).length > 0 && (
+                        <div className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold animate-pulse">
+                          {notifications.filter(n => !n.read).length}
+                        </div>
+                      )}
+                    </div>
+                    <Badge className="bg-purple-500 text-white px-3 py-1 text-xs font-semibold">
+                      New
+                    </Badge>
+                  </div>
+                  <CardTitle className="text-3xl font-bold text-purple-900 mb-2">
+                    {notifications.filter(n => !n.read).length}
+                  </CardTitle>
+                  <CardDescription className="text-purple-700 font-medium text-lg">
+                    Unread Messages
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="relative z-10">
+                  <div className="flex items-center justify-between pt-4 border-t border-purple-200">
+                    <div className="flex items-center space-x-2">
+                      <Bell className="h-4 w-4 text-purple-600" />
+                      <span className="text-sm font-semibold text-purple-600">
+                        {notifications.filter(n => !n.read).length > 0 ? 'Action needed' : 'All caught up'}
+                      </span>
+                    </div>
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      className="text-purple-700 hover:bg-purple-200"
+                      onClick={() => setActiveTab('messages')}
+                    >
+                      View All
+                      <MessageCircle className="h-4 w-4 ml-2" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           )}
           
@@ -2157,6 +2086,25 @@ function App() {
                         <div className="space-y-4">
                           <h3 className="font-medium text-gray-900">Personal Information</h3>
 
+                          <div className="space-y-2">
+                            <Label>Photo</Label>
+                            <div className="flex items-center gap-4">
+                              {teacherPhotoPreview && (
+                                <img src={teacherPhotoPreview} alt="Preview" className="h-20 w-20 rounded-full object-cover border-2 border-gray-200" />
+                              )}
+                              <div className="flex-1">
+                                <Input
+                                  type="file"
+                                  accept="image/*"
+                                  capture="environment"
+                                  onChange={(e) => handlePhotoUpload(e, 'teacher')}
+                                  className="cursor-pointer"
+                                />
+                                <p className="text-xs text-gray-500 mt-1">Upload from device or take photo (max 5MB)</p>
+                              </div>
+                            </div>
+                          </div>
+
                           <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                               <Label htmlFor="firstName">First Name</Label>
@@ -2392,6 +2340,25 @@ function App() {
                       <div className="grid gap-4 py-4">
                         <div className="space-y-4">
                           <h3 className="font-medium text-gray-900">Parent Information</h3>
+
+                          <div className="space-y-2">
+                            <Label>Photo</Label>
+                            <div className="flex items-center gap-4">
+                              {parentPhotoPreview && (
+                                <img src={parentPhotoPreview} alt="Preview" className="h-20 w-20 rounded-full object-cover border-2 border-gray-200" />
+                              )}
+                              <div className="flex-1">
+                                <Input
+                                  type="file"
+                                  accept="image/*"
+                                  capture="environment"
+                                  onChange={(e) => handlePhotoUpload(e, 'parent')}
+                                  className="cursor-pointer"
+                                />
+                                <p className="text-xs text-gray-500 mt-1">Upload from device or take photo (max 5MB)</p>
+                              </div>
+                            </div>
+                          </div>
 
                           <div className="space-y-2">
                             <Label htmlFor="parentName">Full Name</Label>
@@ -2653,6 +2620,25 @@ function App() {
                       <div className="grid gap-4 py-4 max-h-96 overflow-y-auto">
                         <div className="space-y-4">
                           <h3 className="font-medium text-gray-900">Personal Information</h3>
+
+                          <div className="space-y-2">
+                            <Label>Photo</Label>
+                            <div className="flex items-center gap-4">
+                              {studentPhotoPreview && (
+                                <img src={studentPhotoPreview} alt="Preview" className="h-20 w-20 rounded-full object-cover border-2 border-gray-200" />
+                              )}
+                              <div className="flex-1">
+                                <Input
+                                  type="file"
+                                  accept="image/*"
+                                  capture="environment"
+                                  onChange={(e) => handlePhotoUpload(e, 'student')}
+                                  className="cursor-pointer"
+                                />
+                                <p className="text-xs text-gray-500 mt-1">Upload from device or take photo (max 5MB)</p>
+                              </div>
+                            </div>
+                          </div>
 
                           <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
