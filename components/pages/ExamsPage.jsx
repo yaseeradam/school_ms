@@ -7,9 +7,107 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { Plus, FileText, Edit, Trash2, Award, ArrowLeft } from 'lucide-react'
+import { Plus, FileText, Edit, Trash2, Award, ArrowLeft, Download } from 'lucide-react'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 
-export default function ExamsPage({ exams, classes, subjects, students, showModal, setShowModal, showGradeModal, setShowGradeModal, form, setForm, gradeForm, setGradeForm, handleSubmit, handleGradeSubmit, handleDelete, onBack }) {
+export default function ExamsPage({ exams, classes, subjects, students, showModal, setShowModal, showGradeModal, setShowGradeModal, form, setForm, gradeForm, setGradeForm, handleSubmit, handleGradeSubmit, handleDelete, onBack, school, schoolSettings }) {
+  
+  const generateReportCards = (exam) => {
+    const doc = new jsPDF()
+    const cls = classes.find(c => c.id === exam.classId || c._id === exam.classId)
+    const subject = subjects.find(s => s.id === exam.subjectId || s._id === exam.subjectId)
+    const grades = exam.grades || []
+    const schoolName = school?.name || schoolSettings?.schoolName || 'School Name'
+    
+    grades.forEach((grade, index) => {
+      if (index > 0) doc.addPage()
+      
+      const student = students.find(s => s.id === grade.studentId || s._id === grade.studentId)
+      const percentage = ((grade.marksObtained / exam.totalMarks) * 100).toFixed(2)
+      const passed = grade.marksObtained >= exam.passingMarks
+      
+      // Header
+      doc.setFontSize(18)
+      doc.setTextColor(37, 99, 235)
+      doc.text(schoolName, 105, 20, { align: 'center' })
+      
+      doc.setFontSize(14)
+      doc.setTextColor(0, 0, 0)
+      doc.text('EXAM REPORT CARD', 105, 30, { align: 'center' })
+      
+      doc.setFontSize(10)
+      doc.setTextColor(100, 100, 100)
+      doc.text(`Academic Year: ${new Date().getFullYear()}/${new Date().getFullYear() + 1}`, 105, 37, { align: 'center' })
+      
+      // Student Info
+      doc.setFontSize(11)
+      doc.setTextColor(0, 0, 0)
+      doc.text('Student Information', 20, 50)
+      
+      autoTable(doc, {
+        startY: 55,
+        head: [['Field', 'Details']],
+        body: [
+          ['Student Name', `${student?.firstName || ''} ${student?.lastName || ''}`],
+          ['Class', cls?.name || 'N/A'],
+          ['Term', exam.term || 'N/A']
+        ],
+        theme: 'grid',
+        headStyles: { fillColor: [37, 99, 235] },
+        margin: { left: 20, right: 20 }
+      })
+      
+      // Exam Details
+      const examY = doc.previousAutoTable?.finalY + 10 || 100
+      doc.text('Exam Details', 20, examY)
+      
+      autoTable(doc, {
+        startY: examY + 5,
+        head: [['Field', 'Details']],
+        body: [
+          ['Exam Title', exam.title],
+          ['Subject', subject?.name || 'N/A'],
+          ['Date', new Date(exam.date).toLocaleDateString()],
+          ['Duration', `${exam.duration} minutes`]
+        ],
+        theme: 'grid',
+        headStyles: { fillColor: [37, 99, 235] },
+        margin: { left: 20, right: 20 }
+      })
+      
+      // Results
+      const resultY = doc.previousAutoTable?.finalY + 10 || 150
+      doc.text('Results', 20, resultY)
+      
+      autoTable(doc, {
+        startY: resultY + 5,
+        head: [['Metric', 'Value']],
+        body: [
+          ['Marks Obtained', `${grade.marksObtained}/${exam.totalMarks}`],
+          ['Percentage', `${percentage}%`],
+          ['Grade', grade.grade],
+          ['Status', passed ? 'PASSED' : 'FAILED'],
+          ['Remarks', grade.remarks || 'N/A']
+        ],
+        theme: 'grid',
+        headStyles: { fillColor: [37, 99, 235] },
+        bodyStyles: (data) => {
+          if (data.row.index === 3) {
+            return { fillColor: passed ? [220, 252, 231] : [254, 226, 226], textColor: passed ? [22, 101, 52] : [153, 27, 27] }
+          }
+        },
+        margin: { left: 20, right: 20 }
+      })
+      
+      // Footer
+      doc.setFontSize(8)
+      doc.setTextColor(150, 150, 150)
+      doc.text(`Generated on: ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}`, 105, 280, { align: 'center' })
+    })
+    
+    doc.save(`${exam.title}-Report-Cards-${new Date().getFullYear()}.pdf`)
+  }
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -39,6 +137,11 @@ export default function ExamsPage({ exams, classes, subjects, students, showModa
                     <Button size="sm" variant="outline" onClick={() => { setGradeForm({ examId: exam.id || exam._id, studentId: '', marksObtained: '', grade: '', remarks: '' }); setShowGradeModal(true) }}>
                       <Award className="h-4 w-4 mr-1" /> Add Grade
                     </Button>
+                    {grades.length > 0 && (
+                      <Button size="sm" variant="outline" onClick={() => generateReportCards(exam)}>
+                        <Download className="h-4 w-4 mr-1" /> Report Cards
+                      </Button>
+                    )}
                     <Button size="sm" variant="outline" onClick={() => { setForm(exam); setShowModal(true) }}><Edit className="h-4 w-4" /></Button>
                     <Button size="sm" variant="outline" onClick={() => handleDelete(exam.id || exam._id)}><Trash2 className="h-4 w-4 text-red-600" /></Button>
                   </div>
