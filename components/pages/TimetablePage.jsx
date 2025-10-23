@@ -6,14 +6,69 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Plus, Clock, Edit, Trash2, ArrowLeft } from 'lucide-react'
+import { Plus, Clock, Edit, Trash2, ArrowLeft, Download } from 'lucide-react'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 
-export default function TimetablePage({ timetables, classes, subjects, teachers, showModal, setShowModal, form, setForm, handleSubmit, handleDelete, onBack }) {
+export default function TimetablePage({ timetables, classes, subjects, teachers, showModal, setShowModal, form, setForm, handleSubmit, handleDelete, onBack, school, schoolSettings }) {
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
   const periods = ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th']
 
   const getTimetableForClass = (classId) => {
     return timetables.filter(t => t.classId === classId)
+  }
+
+  const downloadTimetablePDF = (cls) => {
+    const doc = new jsPDF('l', 'mm', 'a4')
+    const pageWidth = doc.internal.pageSize.getWidth()
+    
+    doc.setFontSize(20)
+    doc.setTextColor(37, 99, 235)
+    const schoolName = school?.name || schoolSettings?.schoolName || 'School Name'
+    doc.text(schoolName, pageWidth / 2, 20, { align: 'center' })
+    
+    doc.setFontSize(16)
+    doc.setTextColor(0, 0, 0)
+    doc.text(`Class Timetable - ${cls.name}`, pageWidth / 2, 30, { align: 'center' })
+    
+    doc.setFontSize(10)
+    doc.setTextColor(100, 100, 100)
+    doc.text(`Academic Year: ${new Date().getFullYear()}/${new Date().getFullYear() + 1}`, pageWidth / 2, 37, { align: 'center' })
+    
+    const classTimetable = getTimetableForClass(cls.id || cls._id)
+    const tableData = periods.map(period => {
+      const row = [period]
+      days.forEach(day => {
+        const entry = classTimetable.find(t => t.day === day && t.period === period)
+        if (entry) {
+          const subject = subjects.find(s => s.id === entry.subjectId || s._id === entry.subjectId)
+          const teacher = teachers.find(t => t.id === entry.teacherId || t._id === entry.teacherId)
+          row.push(`${subject?.name || 'N/A'}\n${teacher?.firstName || teacher?.name || 'N/A'} ${teacher?.lastName || ''}\n${entry.startTime}-${entry.endTime}`)
+        } else {
+          row.push('-')
+        }
+      })
+      return row
+    })
+    
+    autoTable(doc, {
+      startY: 45,
+      head: [['Period', ...days]],
+      body: tableData,
+      theme: 'grid',
+      headStyles: { fillColor: [37, 99, 235], fontSize: 10, fontStyle: 'bold' },
+      bodyStyles: { fontSize: 9 },
+      columnStyles: { 0: { cellWidth: 20, fontStyle: 'bold', fillColor: [243, 244, 246] } },
+      margin: { left: 10, right: 10 }
+    })
+    
+    const finalY = doc.previousAutoTable?.finalY || 45
+    doc.setFontSize(8)
+    doc.setTextColor(150, 150, 150)
+    doc.text(`Generated on: ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}`, 10, finalY + 10)
+    doc.text(`Total Periods: ${classTimetable.length}`, pageWidth - 10, finalY + 10, { align: 'right' })
+    
+    doc.save(`Timetable-${cls.name}-${new Date().getFullYear()}.pdf`)
   }
 
   return (
@@ -31,9 +86,14 @@ export default function TimetablePage({ timetables, classes, subjects, teachers,
       {classes.map(cls => (
         <Card key={cls.id || cls._id}>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-blue-600" />
-              {cls.name} - Timetable
+            <CardTitle className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Clock className="h-5 w-5 text-blue-600" />
+                {cls.name} - Timetable
+              </div>
+              <Button size="sm" variant="outline" onClick={() => downloadTimetablePDF(cls)}>
+                <Download className="h-4 w-4 mr-2" /> Download PDF
+              </Button>
             </CardTitle>
           </CardHeader>
           <CardContent>
