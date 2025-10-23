@@ -71,7 +71,8 @@ function ConversationList({ onSelectConversation, selectedConversationId, curren
 
   useEffect(() => {
     if (conversations.length > 0) {
-      loadUserProfiles()
+      const timer = setTimeout(() => loadUserProfiles(), 100)
+      return () => clearTimeout(timer)
     }
   }, [conversations])
 
@@ -98,26 +99,28 @@ function ConversationList({ onSelectConversation, selectedConversationId, curren
       conversations.forEach(conv => {
         if (conv.type === 'private') {
           const otherUserId = conv.participants?.find(p => p !== currentUser.id)
-          if (otherUserId) userIds.add(otherUserId)
+          if (otherUserId && !userProfiles[otherUserId]) userIds.add(otherUserId)
         }
       })
+
+      if (userIds.size === 0) return
 
       const profiles = {}
-      const profilePromises = Array.from(userIds).map(async (userId) => {
-        try {
-          const response = await fetch(`/api/chat/user-info?userId=${userId}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          })
-          if (response.ok) {
-            const data = await response.json()
-            profiles[userId] = data
+      await Promise.all(
+        Array.from(userIds).map(async (userId) => {
+          try {
+            const response = await fetch(`/api/chat/user-info?userId=${userId}`, {
+              headers: { 'Authorization': `Bearer ${token}` }
+            })
+            if (response.ok) {
+              profiles[userId] = await response.json()
+            }
+          } catch (error) {
+            console.error(`Error loading profile for user ${userId}:`, error)
           }
-        } catch (error) {
-          console.error(`Error loading profile for user ${userId}:`, error)
-        }
-      })
+        })
+      )
 
-      await Promise.all(profilePromises)
       setUserProfiles(prev => ({ ...prev, ...profiles }))
     } catch (error) {
       console.error('Error loading user profiles:', error)
@@ -383,15 +386,23 @@ function ConversationList({ onSelectConversation, selectedConversationId, curren
 
   return (
     <div className="flex flex-col h-full">
-      <div className="p-4 border-b border-gray-200/50 bg-gradient-to-r from-blue-50 to-purple-50">
+      <div className="p-5 border-b border-gray-200/50 bg-gradient-to-r from-purple-600 via-purple-500 to-blue-500">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-gray-800">Conversations</h2>
-          <div className="flex space-x-2">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
+              <MessageCircle size={20} className="text-white" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-white">Messages</h2>
+              <p className="text-xs text-white/80">{conversations.length} conversations</p>
+            </div>
+          </div>
+          <div className="flex gap-1">
             {currentUser.role !== 'developer' && (
               <Dialog open={showNewChatDialog} onOpenChange={setShowNewChatDialog}>
                 <DialogTrigger asChild>
-                  <Button variant="ghost" size="sm">
-                    <Plus className="h-4 w-4" />
+                  <Button variant="ghost" size="sm" className="hover:bg-white/20 text-white">
+                    <Plus className="h-5 w-5" />
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
@@ -445,8 +456,8 @@ function ConversationList({ onSelectConversation, selectedConversationId, curren
             {currentUser.role === 'school_admin' && (
               <Dialog open={showNewGroupDialog} onOpenChange={setShowNewGroupDialog}>
                 <DialogTrigger asChild>
-                  <Button variant="ghost" size="sm">
-                    <Users className="h-4 w-4" />
+                  <Button variant="ghost" size="sm" className="hover:bg-white/20 text-white">
+                    <Users className="h-5 w-5" />
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
@@ -534,70 +545,70 @@ function ConversationList({ onSelectConversation, selectedConversationId, curren
             placeholder="Search conversations..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-11 rounded-2xl bg-white border-gray-200 shadow-sm focus:ring-2 focus:ring-blue-500/20"
+            className="pl-11 rounded-xl bg-white/90 backdrop-blur-sm border-white/50 shadow-sm focus:ring-2 focus:ring-white/50 focus:bg-white transition-all"
           />
         </div>
       </div>
 
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden bg-gradient-to-b from-gray-50/50 to-white">
         <ScrollArea className="h-full">
-          <div className="space-y-1 p-2">
+          <div className="space-y-1 p-3">
             {filteredConversations.length === 0 ? (
-              <div className="text-center py-12 px-4">
+              <div className="text-center py-16 px-4">
                 <div className="mb-4 relative inline-block">
-                  <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-400 blur-2xl opacity-20 rounded-full"></div>
-                  <div className="relative p-6 bg-gradient-to-br from-blue-100 to-purple-100 rounded-2xl">
-                    <MessageSquare className="h-12 w-12 text-blue-600" />
+                  <div className="absolute inset-0 bg-gradient-to-r from-purple-400 to-blue-400 blur-2xl opacity-20 rounded-full"></div>
+                  <div className="relative p-8 bg-gradient-to-br from-purple-100 to-blue-100 rounded-2xl">
+                    <MessageSquare className="h-14 w-14 text-purple-600" />
                   </div>
                 </div>
-                <p className="font-medium text-gray-700">No conversations yet</p>
-                <p className="text-sm text-gray-500 mt-1">Start a new chat to get connected</p>
+                <p className="font-bold text-gray-800 text-lg">No conversations yet</p>
+                <p className="text-sm text-gray-500 mt-2">Start a new chat to get connected</p>
               </div>
             ) : (
               filteredConversations.map((conversation) => (
                 <button
                   key={conversation.id}
                   onClick={() => onSelectConversation(conversation)}
-                  className={`w-full p-3 rounded-xl text-left transition-all duration-200 relative group ${
+                  className={`w-full p-3.5 rounded-xl text-left transition-all duration-200 relative group ${
                     selectedConversationId === conversation.id 
-                      ? 'bg-gradient-to-r from-blue-50 to-purple-50 shadow-md scale-[0.98]' 
-                      : 'hover:bg-gray-50 hover:shadow-sm'
+                      ? 'bg-gradient-to-r from-purple-100 to-blue-100 shadow-lg scale-[0.98] border border-purple-200' 
+                      : 'hover:bg-white hover:shadow-md'
                   }`}
                 >
                   <div className="flex items-center space-x-3">
-                    <div className="relative">
+                    <div className="relative flex-shrink-0">
                       <Avatar className="h-12 w-12 ring-2 ring-white shadow-md">
-                        <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white font-semibold text-lg">
+                        <AvatarFallback className="bg-gradient-to-br from-purple-600 to-blue-600 text-white font-semibold">
                           {getConversationAvatar(conversation)}
                         </AvatarFallback>
                       </Avatar>
                       {conversation.type === 'private' && getUserOnlineStatus(conversation) && (
-                        <div className="absolute bottom-0 right-0 h-3.5 w-3.5 bg-green-500 border-2 border-white rounded-full animate-pulse"></div>
+                        <div className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 bg-green-500 border-2 border-white rounded-full">
+                          <span className="absolute inset-0 bg-green-500 rounded-full animate-ping opacity-75"></span>
+                        </div>
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1">
-                        <h3 className={`text-sm truncate ${
-                          conversation.unreadCount > 0 ? 'font-bold text-gray-900' : 'font-semibold text-gray-700'
+                      <div className="flex items-start justify-between gap-2 mb-1">
+                        <h3 className={`text-sm font-semibold truncate flex-1 ${
+                          conversation.unreadCount > 0 ? 'text-gray-900' : 'text-gray-700'
                         }`}>
                           {getConversationDisplayName(conversation)}
                         </h3>
-                        {conversation.lastMessageAt && (
-                          <span className={`text-xs ml-2 ${
-                            conversation.unreadCount > 0 ? 'text-blue-600 font-medium' : 'text-gray-500'
-                          }`}>
-                            {formatLastMessageTime(conversation.lastMessageAt)}
-                          </span>
-                        )}
+                        <span className={`text-xs flex-shrink-0 ${
+                          conversation.unreadCount > 0 ? 'text-purple-600 font-semibold' : 'text-gray-500'
+                        }`}>
+                          {conversation.lastMessageAt ? formatLastMessageTime(conversation.lastMessageAt) : ''}
+                        </span>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <p className={`text-xs truncate ${
+                      <div className="flex items-center justify-between gap-2">
+                        <p className={`text-xs truncate flex-1 ${
                           conversation.unreadCount > 0 ? 'font-medium text-gray-800' : 'text-gray-500'
                         }`}>
                           {getLastMessage(conversation)}
                         </p>
                         {conversation.unreadCount > 0 && (
-                          <Badge className="ml-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white text-xs px-2 py-0.5 shadow-sm">
+                          <Badge className="flex-shrink-0 bg-gradient-to-r from-purple-600 to-blue-600 text-white text-xs px-2 py-0.5 shadow-sm font-semibold min-w-[20px] text-center">
                             {conversation.unreadCount}
                           </Badge>
                         )}

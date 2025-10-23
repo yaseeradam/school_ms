@@ -1,6 +1,16 @@
 import { NextResponse } from 'next/server'
-import { connectDB } from '@/lib/mongodb'
+import { MongoClient } from 'mongodb'
 import jwt from 'jsonwebtoken'
+
+const client = new MongoClient(process.env.MONGO_URL)
+let cachedDb = null
+
+async function connectDB() {
+  if (cachedDb) return cachedDb
+  await client.connect()
+  cachedDb = client.db(process.env.DB_NAME || 'school_management')
+  return cachedDb
+}
 
 export async function GET(request) {
   try {
@@ -19,10 +29,7 @@ export async function GET(request) {
     }
 
     const db = await connectDB()
-    const user = await db.collection('users').findOne(
-      { _id: userId },
-      { projection: { name: 1, email: 1, profilePicture: 1, lastSeen: 1, isOnline: 1 } }
-    )
+    const user = await db.collection('users').findOne({ id: userId })
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
@@ -37,6 +44,7 @@ export async function GET(request) {
       isOnline: user.isOnline || false
     })
   } catch (error) {
+    console.error('User info error:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

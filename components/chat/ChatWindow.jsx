@@ -387,7 +387,7 @@ function ChatWindow({ conversation, onClose, currentUser }) {
     : null
 
   return (
-    <div className="flex flex-col h-full bg-white">
+    <div className="flex flex-col h-full bg-gradient-to-br from-white via-purple-50/20 to-blue-50/20">
       <CallDialog
         isOpen={callDialog.open}
         onClose={() => setCallDialog({ open: false, type: null })}
@@ -429,17 +429,17 @@ function ChatWindow({ conversation, onClose, currentUser }) {
         </DialogContent>
       </Dialog>
 
-      <div className="flex items-center justify-between p-4 border-b shadow-sm bg-white">
-        <div className="flex items-center space-x-3">
+      <div className="flex items-center justify-between p-4 border-b border-gray-200/50 shadow-sm bg-gradient-to-r from-purple-600 via-purple-500 to-blue-500">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
           <div 
-            className="relative cursor-pointer" 
+            className="relative flex-shrink-0 cursor-pointer" 
             onClick={() => conversation.type === 'private' && setShowProfileDialog(true)}
           >
-            <Avatar className="h-10 w-10">
+            <Avatar className="h-11 w-11 ring-2 ring-white/50 shadow-lg">
               {conversation.type === 'private' && otherUserInfo?.profilePicture ? (
                 <img src={otherUserInfo.profilePicture} alt={otherUserInfo.name} className="h-full w-full object-cover rounded-full" />
               ) : (
-                <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-500 text-white">
+                <AvatarFallback className="bg-gradient-to-br from-white/30 to-white/20 backdrop-blur-sm text-white">
                   {conversation.type === 'group' ? (
                     <Users className="h-5 w-5" />
                   ) : (
@@ -449,62 +449,60 @@ function ChatWindow({ conversation, onClose, currentUser }) {
               )}
             </Avatar>
             {conversation.type === 'private' && isOnline && (
-              <div className="absolute bottom-0 right-0 h-3 w-3 bg-green-500 border-2 border-white rounded-full"></div>
+              <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 bg-green-400 border-2 border-white rounded-full">
+                <span className="absolute inset-0 bg-green-400 rounded-full animate-ping opacity-75"></span>
+              </div>
             )}
           </div>
-          <div>
-            <h3 className="font-semibold text-base">
+          <div className="flex-1 min-w-0">
+            <h3 className="font-bold text-base text-white truncate">
               {conversation.type === 'group' ? conversation.name : (otherUserInfo?.name || 'Loading...')}
             </h3>
-            <div className="flex items-center space-x-2 text-xs text-gray-500">
+            <div className="flex items-center text-xs text-white/90">
               {conversation.type === 'private' && (
                 <>
                   {typingUsers.length > 0 ? (
-                    <span className="text-blue-500 italic">typing...</span>
-                  ) : messages.length > 0 ? (
-                    <span className="truncate max-w-[200px]">
-                      {messages[messages.length - 1].messageType === 'image' ? '📷 Photo' : 
-                       messages[messages.length - 1].messageType === 'file' ? '📎 File' :
-                       messages[messages.length - 1].content}
-                    </span>
+                    <span className="font-medium italic">typing...</span>
                   ) : (
-                    <span className={isOnline ? 'text-green-600' : ''}>
+                    <span className={isOnline ? 'text-green-200 font-medium' : 'text-white/80'}>
                       {isOnline ? 'Active now' : formatLastSeen(lastSeen)}
                     </span>
                   )}
                 </>
               )}
               {conversation.type === 'group' && (
-                <span>{conversation.participants?.length || 0} members</span>
+                <span className="text-white/80">{conversation.participants?.length || 0} members</span>
               )}
             </div>
           </div>
         </div>
-        <div className="flex items-center space-x-1">
+        <div className="flex items-center gap-1 flex-shrink-0">
           {conversation.type === 'private' && (
             <>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-9 w-9 rounded-full hover:bg-gray-100"
+                className="h-9 w-9 rounded-full hover:bg-white/20 transition-colors"
                 onClick={() => setCallDialog({ open: true, type: 'voice' })}
+                title="Voice call"
               >
-                <Phone className="h-5 w-5 text-blue-500" />
+                <Phone className="h-4 w-4 text-white" />
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-9 w-9 rounded-full hover:bg-gray-100"
+                className="h-9 w-9 rounded-full hover:bg-white/20 transition-colors"
                 onClick={() => setCallDialog({ open: true, type: 'video' })}
+                title="Video call"
               >
-                <Video className="h-5 w-5 text-blue-500" />
+                <Video className="h-4 w-4 text-white" />
               </Button>
             </>
           )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full hover:bg-gray-100">
-                <MoreVertical className="h-5 w-5 text-blue-500" />
+              <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full hover:bg-white/20 transition-colors" title="More options">
+                <MoreVertical className="h-4 w-4 text-white" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -535,7 +533,7 @@ function ChatWindow({ conversation, onClose, currentUser }) {
         </div>
       </div>
 
-      <div className="flex-1 overflow-hidden bg-gray-50" style={{ height: 'calc(100vh - 180px)' }}>
+      <div className="flex-1 overflow-hidden bg-gradient-to-b from-gray-50/50 to-white" style={{ height: 'calc(100vh - 180px)' }}>
         <ScrollArea className="h-full p-4">
           <div className="space-y-2">
             {messages.map((message) => {
@@ -543,24 +541,24 @@ function ChatWindow({ conversation, onClose, currentUser }) {
               return (
                 <div
                   key={message.id}
-                  className={`flex mb-4 ${isOwnMessage ? 'justify-end' : 'justify-start'}`}
+                  className={`flex mb-3 ${isOwnMessage ? 'justify-end' : 'justify-start'}`}
                   onContextMenu={(e) => handleMessageContextMenu(e, message)}
                 >
-                  <div className={`flex items-end gap-2 max-w-xs lg:max-w-md`}>
+                  <div className={`flex items-end gap-2 max-w-[75%] lg:max-w-[60%]`}>
                     {!isOwnMessage && (
-                      <Avatar className="h-8 w-8 flex-shrink-0">
+                      <Avatar className="h-8 w-8 flex-shrink-0 mb-1">
                         {otherUserInfo?.profilePicture ? (
                           <img src={otherUserInfo.profilePicture} alt={otherUserInfo.name} className="h-full w-full object-cover rounded-full" />
                         ) : (
-                          <AvatarFallback className="bg-gradient-to-br from-purple-400 to-pink-400 text-white text-xs">
+                          <AvatarFallback className="bg-gradient-to-br from-purple-500 to-blue-500 text-white text-xs">
                             {otherUserInfo?.name?.charAt(0).toUpperCase() || <User className="h-4 w-4" />}
                           </AvatarFallback>
                         )}
                       </Avatar>
                     )}
-                    <div className="flex flex-col">
-                      {!isOwnMessage && (
-                        <span className="text-xs text-gray-600 font-medium mb-1 px-1">
+                    <div className="flex flex-col flex-1 min-w-0">
+                      {!isOwnMessage && conversation.type === 'group' && (
+                        <span className="text-xs text-gray-600 font-medium mb-1 px-2">
                           {otherUserInfo?.name || message.senderName || 'User'}
                         </span>
                       )}
@@ -571,10 +569,10 @@ function ChatWindow({ conversation, onClose, currentUser }) {
                         </div>
                       )}
                       <div
-                        className={`px-4 py-2 shadow-sm cursor-pointer ${
+                        className={`px-4 py-2.5 shadow-sm cursor-pointer transition-all ${
                           isOwnMessage
-                            ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-2xl rounded-br-md'
-                            : 'bg-white text-gray-900 rounded-2xl rounded-bl-md border border-gray-200'
+                            ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-2xl rounded-br-sm'
+                            : 'bg-white text-gray-900 rounded-2xl rounded-bl-sm border border-gray-200'
                         }`}
                       >
                         {message.messageType === 'image' ? (
@@ -588,15 +586,15 @@ function ChatWindow({ conversation, onClose, currentUser }) {
                           <p className="text-sm leading-relaxed">{message.content}</p>
                         )}
                       </div>
-                      <div className={`flex items-center mt-1 space-x-1 px-1 ${
+                      <div className={`flex items-center mt-1 gap-1 ${
                         isOwnMessage ? 'justify-end' : 'justify-start'
                       }`}>
-                        <span className={`text-xs ${
-                          isOwnMessage ? 'text-blue-600' : 'text-gray-500'
+                        <span className={`text-[10px] ${
+                          isOwnMessage ? 'text-purple-600 font-medium' : 'text-gray-500'
                         }`}>
                           {formatTime(message.timestamp || message.createdAt)}
                         </span>
-                        {getMessageStatus(message)}
+                        {isOwnMessage && getMessageStatus(message)}
                       </div>
                     </div>
                   </div>
@@ -649,21 +647,22 @@ function ChatWindow({ conversation, onClose, currentUser }) {
       )}
 
       {replyingTo && (
-        <div className="px-4 py-2 bg-blue-50 border-t flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <Reply className="h-4 w-4 text-blue-500" />
-            <div>
-              <p className="text-xs text-gray-500">Replying to {replyingTo.senderName || 'User'}</p>
-              <p className="text-sm text-gray-700 truncate max-w-md">{replyingTo.content}</p>
+        <div className="px-4 py-2.5 bg-gradient-to-r from-purple-50 to-blue-50 border-t border-gray-200/50 flex items-center justify-between gap-3">
+          <div className="flex items-start gap-2 flex-1 min-w-0">
+            <Reply className="h-4 w-4 text-purple-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-purple-600 font-medium mb-0.5">Replying to {replyingTo.senderName || 'User'}</p>
+              <p className="text-sm text-gray-700 truncate">{replyingTo.content}</p>
             </div>
           </div>
           <Button
             variant="ghost"
             size="icon"
-            className="h-6 w-6"
+            className="h-7 w-7 flex-shrink-0 hover:bg-gray-200 rounded-lg"
             onClick={() => setReplyingTo(null)}
+            title="Cancel reply"
           >
-            <X className="h-4 w-4" />
+            <X className="h-4 w-4 text-gray-600" />
           </Button>
         </div>
       )}
@@ -685,35 +684,37 @@ function ChatWindow({ conversation, onClose, currentUser }) {
         </div>
       )}
 
-      <div className="p-4 border-t bg-white">
+      <div className="p-4 border-t border-gray-200/50 bg-white/90 backdrop-blur-sm">
         {isRecording ? (
-          <div className="flex items-center space-x-3 bg-red-50 p-3 rounded-full">
-            <div className="flex items-center space-x-2 flex-1">
-              <div className="h-3 w-3 bg-red-500 rounded-full animate-pulse" />
-              <span className="text-sm font-medium text-red-600">
-                Recording... {formatRecordingTime(recordingTime)}
+          <div className="flex items-center gap-3 bg-red-50 p-3 rounded-2xl border border-red-200">
+            <div className="flex items-center gap-2 flex-1">
+              <div className="h-2.5 w-2.5 bg-red-500 rounded-full animate-pulse" />
+              <span className="text-sm font-semibold text-red-600">
+                Recording {formatRecordingTime(recordingTime)}
               </span>
             </div>
             <Button
               type="button"
               variant="ghost"
               size="icon"
-              className="h-9 w-9 rounded-full hover:bg-red-100"
+              className="h-8 w-8 rounded-full hover:bg-red-100 flex-shrink-0"
               onClick={handleStopRecording}
+              title="Cancel recording"
             >
-              <X className="h-5 w-5 text-red-600" />
+              <X className="h-4 w-4 text-red-600" />
             </Button>
             <Button
               type="button"
               size="icon"
-              className="h-9 w-9 rounded-full bg-red-500 hover:bg-red-600"
+              className="h-8 w-8 rounded-full bg-red-500 hover:bg-red-600 flex-shrink-0"
               onClick={handleStopRecording}
+              title="Send recording"
             >
               <Send className="h-4 w-4" />
             </Button>
           </div>
         ) : (
-          <form onSubmit={handleSendMessage} className="flex items-center space-x-2">
+          <form onSubmit={handleSendMessage} className="flex items-center gap-2">
             <input
               ref={fileInputRef}
               type="file"
@@ -727,44 +728,50 @@ function ChatWindow({ conversation, onClose, currentUser }) {
               className="hidden"
               onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0], 'image')}
             />
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9 rounded-full hover:bg-gray-100"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-            >
-              <Paperclip className="h-5 w-5 text-blue-500" />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9 rounded-full hover:bg-gray-100"
-              onClick={() => imageInputRef.current?.click()}
-              disabled={uploading}
-            >
-              <Image className="h-5 w-5 text-blue-500" />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9 rounded-full hover:bg-gray-100"
-              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-            >
-              <Smile className="h-5 w-5 text-blue-500" />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9 rounded-full hover:bg-gray-100"
-              onClick={handleStartRecording}
-            >
-              <Mic className="h-5 w-5 text-blue-500" />
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 rounded-full hover:bg-purple-100 transition-colors flex-shrink-0"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                title="Attach file"
+              >
+                <Paperclip className="h-4 w-4 text-purple-600" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 rounded-full hover:bg-purple-100 transition-colors flex-shrink-0"
+                onClick={() => imageInputRef.current?.click()}
+                disabled={uploading}
+                title="Send image"
+              >
+                <Image className="h-4 w-4 text-purple-600" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 rounded-full hover:bg-purple-100 transition-colors flex-shrink-0"
+                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                title="Add emoji"
+              >
+                <Smile className="h-4 w-4 text-purple-600" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 rounded-full hover:bg-purple-100 transition-colors flex-shrink-0"
+                onClick={handleStartRecording}
+                title="Record voice"
+              >
+                <Mic className="h-4 w-4 text-purple-600" />
+              </Button>
+            </div>
             <Input
               value={newMessage}
               onChange={(e) => {
@@ -772,7 +779,7 @@ function ChatWindow({ conversation, onClose, currentUser }) {
                 handleTyping()
               }}
               placeholder="Type a message..."
-              className="flex-1 rounded-full bg-gray-100 border-0 px-4"
+              className="flex-1 rounded-full bg-gray-100 border-0 px-5 py-2.5 focus:ring-2 focus:ring-purple-500/20 transition-all text-sm"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault()
@@ -783,8 +790,9 @@ function ChatWindow({ conversation, onClose, currentUser }) {
             <Button
               type="submit"
               size="icon"
-              className="h-9 w-9 rounded-full bg-blue-500 hover:bg-blue-600"
+              className="h-10 w-10 rounded-full bg-gradient-to-r from-purple-600 to-blue-600 hover:shadow-lg transition-all hover:scale-105 active:scale-95 flex-shrink-0"
               disabled={uploading || (!newMessage.trim() && !replyingTo)}
+              title="Send message"
             >
               <Send className="h-4 w-4 text-white" />
             </Button>

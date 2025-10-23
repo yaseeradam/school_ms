@@ -3,9 +3,8 @@ import { toast } from 'sonner'
 
 export function useAuth() {
   const [user, setUser] = useState(null)
-  const [school, setSchool] = useState(null)
   const [token, setToken] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [school, setSchool] = useState(null)
 
   useEffect(() => {
     const savedToken = localStorage.getItem('token')
@@ -15,19 +14,16 @@ export function useAuth() {
     if (savedToken && savedUser) {
       setToken(savedToken)
       setUser(JSON.parse(savedUser))
-      if (savedSchool) {
-        setSchool(JSON.parse(savedSchool))
-      }
+      if (savedSchool) setSchool(JSON.parse(savedSchool))
     }
-    setLoading(false)
   }, [])
 
-  const login = async (email, password) => {
+  const login = async (authData) => {
     try {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify(authData)
       })
       
       if (!response.ok) {
@@ -42,15 +38,11 @@ export function useAuth() {
       setSchool(result.school)
       localStorage.setItem('token', result.token)
       localStorage.setItem('user', JSON.stringify(result.user))
-      if (result.school) {
-        localStorage.setItem('school', JSON.stringify(result.school))
-      }
+      if (result.school) localStorage.setItem('school', JSON.stringify(result.school))
       
       toast.success('Logged in successfully!')
-      return result
     } catch (error) {
       toast.error(error.message || 'Login failed')
-      throw error
     }
   }
 
@@ -64,5 +56,5 @@ export function useAuth() {
     toast.success('Logged out successfully')
   }
 
-  return { user, school, token, loading, login, logout, setSchool }
+  return { user, token, school, login, logout, setSchool }
 }

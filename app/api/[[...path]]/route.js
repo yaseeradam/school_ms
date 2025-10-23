@@ -7,14 +7,24 @@ import { v4 as uuidv4 } from 'uuid'
 const client = new MongoClient(process.env.MONGO_URL)
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'
 
-// Database connection
+// Database connection with singleton pattern
+let cachedDb = null
+
 async function connectDB() {
+  if (cachedDb) {
+    return cachedDb
+  }
+  
   try {
-    await client.connect()
-    return client.db(process.env.DB_NAME || 'school_management')
+    if (!client.topology || !client.topology.isConnected()) {
+      await client.connect()
+    }
+    cachedDb = client.db(process.env.DB_NAME || 'school_management')
+    console.log('Database connected successfully')
+    return cachedDb
   } catch (error) {
-    console.error('Database connection error:', error)
-    throw error
+    console.error('Database connection error:', error.message)
+    throw new Error('Database connection failed')
   }
 }
 
@@ -323,8 +333,11 @@ export async function GET(request, { params }) {
         return NextResponse.json({ error: 'Route not found' }, { status: 404 })
     }
   } catch (error) {
-    console.error('GET Error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    console.error('GET Error:', error.message, error.stack)
+    return NextResponse.json({ 
+      error: 'Internal server error', 
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined 
+    }, { status: 500 })
   }
 }
 
@@ -965,8 +978,11 @@ export async function POST(request, { params }) {
         return NextResponse.json({ error: 'Route not found' }, { status: 404 })
     }
   } catch (error) {
-    console.error('POST Error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    console.error('POST Error:', error.message, error.stack)
+    return NextResponse.json({ 
+      error: 'Internal server error',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    }, { status: 500 })
   }
 }
 
@@ -1030,8 +1046,11 @@ export async function PUT(request, { params }) {
         return NextResponse.json({ error: 'Route not found' }, { status: 404 })
     }
   } catch (error) {
-    console.error('PUT Error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    console.error('PUT Error:', error.message, error.stack)
+    return NextResponse.json({ 
+      error: 'Internal server error',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    }, { status: 500 })
   }
 }
 
@@ -1125,7 +1144,10 @@ export async function DELETE(request, { params }) {
         return NextResponse.json({ error: 'Route not found' }, { status: 404 })
     }
   } catch (error) {
-    console.error('DELETE Error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    console.error('DELETE Error:', error.message, error.stack)
+    return NextResponse.json({ 
+      error: 'Internal server error',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    }, { status: 500 })
   }
 }
