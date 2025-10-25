@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge'
 import { Download, UserPlus, Eye, Edit, Users2 } from 'lucide-react'
 import { exportParentsToCSV } from '@/lib/csv-export'
+import { ViewParentModal } from '@/components/modals/ViewParentModal'
 
 export default function ParentsPage({ 
   parents, 
@@ -20,8 +21,21 @@ export default function ParentsPage({
   setParentFilters,
   setShowFormView,
   filterParents,
-  toast
+  modal
 }) {
+  const [viewParent, setViewParent] = useState(null)
+  const [showViewModal, setShowViewModal] = useState(false)
+
+  const handleView = (parent) => {
+    setViewParent(parent)
+    setShowViewModal(true)
+  }
+
+  const handleEdit = () => {
+    setShowViewModal(false)
+    modal?.showSuccess('Coming Soon', 'Edit functionality coming soon!')
+  }
+
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
@@ -113,10 +127,10 @@ export default function ParentsPage({
                   </TableCell>
                   <TableCell>
                     <div className="flex space-x-2">
-                      <Button size="sm" variant="outline" onClick={() => toast.info('View parent details coming soon!')}>
+                      <Button size="sm" variant="outline" onClick={() => handleView(parent)}>
                         <Eye className="h-4 w-4" />
                       </Button>
-                      <Button size="sm" variant="outline" onClick={() => toast.info('Edit parent coming soon!')}>
+                      <Button size="sm" variant="outline" onClick={() => { setViewParent(parent); handleEdit(); }}>
                         <Edit className="h-4 w-4" />
                       </Button>
                     </div>
@@ -137,6 +151,14 @@ export default function ParentsPage({
           </CardContent>
         </Card>
       )}
+
+      <ViewParentModal
+        open={showViewModal}
+        onOpenChange={setShowViewModal}
+        parent={viewParent}
+        children={students.filter(s => s.parentId === viewParent?.id)}
+        onEdit={handleEdit}
+      />
     </div>
   )
 }

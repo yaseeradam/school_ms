@@ -57,7 +57,7 @@ export default function BehaviorPage({ behaviors, students, classes, showModal, 
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-yellow-900">
-              {students.filter(s => behaviors.filter(b => b.studentId === s._id && b.type === 'Negative').length >= 3).length}
+              {students.filter(s => behaviors.filter(b => b.studentId === s.id && b.type === 'Negative').length >= 3).length}
             </div>
           </CardContent>
         </Card>
@@ -70,8 +70,8 @@ export default function BehaviorPage({ behaviors, students, classes, showModal, 
         <CardContent>
           <div className="space-y-3">
             {behaviors.map(behavior => {
-              const student = students.find(s => s._id === behavior.studentId)
-              const cls = classes.find(c => c._id === student?.classId)
+              const student = students.find(s => s.id === behavior.studentId)
+              const cls = classes.find(c => c.id === student?.classId)
               return (
                 <div key={behavior._id} className={`p-4 rounded-lg border-l-4 ${
                   behavior.type === 'Positive' ? 'border-green-500 bg-green-50' : 'border-red-500 bg-red-50'
@@ -85,7 +85,7 @@ export default function BehaviorPage({ behaviors, students, classes, showModal, 
                           <ThumbsDown className="h-5 w-5 text-red-600" />
                         )}
                         <div>
-                          <div className="font-semibold">{student?.name}</div>
+                          <div className="font-semibold">{student ? `${student.firstName} ${student.lastName}` : 'Unknown Student'}</div>
                           <div className="text-sm text-gray-600">{cls?.name} • {new Date(behavior.date).toLocaleDateString()}</div>
                         </div>
                       </div>
@@ -121,7 +121,7 @@ export default function BehaviorPage({ behaviors, students, classes, showModal, 
               <Label>Student</Label>
               <Select value={form.studentId} onValueChange={(v) => setForm({...form, studentId: v})}>
                 <SelectTrigger><SelectValue placeholder="Select student" /></SelectTrigger>
-                <SelectContent>{students.map(s => <SelectItem key={s._id} value={s._id}>{s.name}</SelectItem>)}</SelectContent>
+                <SelectContent>{students.map(s => <SelectItem key={s.id} value={s.id}>{s.firstName} {s.lastName}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div>
@@ -145,6 +145,7 @@ export default function BehaviorPage({ behaviors, students, classes, showModal, 
                       <SelectItem value="Helpful">Helpful</SelectItem>
                       <SelectItem value="Leadership">Leadership</SelectItem>
                       <SelectItem value="Participation">Participation</SelectItem>
+                      <SelectItem value="Others">Others</SelectItem>
                     </>
                   ) : (
                     <>
@@ -152,6 +153,7 @@ export default function BehaviorPage({ behaviors, students, classes, showModal, 
                       <SelectItem value="Disruptive">Disruptive</SelectItem>
                       <SelectItem value="Incomplete Work">Incomplete Work</SelectItem>
                       <SelectItem value="Misconduct">Misconduct</SelectItem>
+                      <SelectItem value="Others">Others</SelectItem>
                     </>
                   )}
                 </SelectContent>

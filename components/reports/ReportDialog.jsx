@@ -7,14 +7,18 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { FileText, Download, FileSpreadsheet } from 'lucide-react'
 import { generateStudentReport, generateTeacherReport, generateAttendanceReport, generateComprehensiveReport, generateExcelReport } from '@/lib/report-generator'
-import { toast } from 'sonner'
+import { useModal } from '@/hooks/useModal'
+import { LoadingModal } from '@/components/ui/loading-modal'
+import { StatusModal } from '@/components/ui/status-modal'
 
 export default function ReportDialog({ open, onOpenChange, students, teachers, parents, classes, attendance, stats, userRole, schoolName }) {
+  const modal = useModal()
   const [reportType, setReportType] = useState('comprehensive')
   const [format, setFormat] = useState('pdf')
 
   const handleGenerate = () => {
     try {
+      modal.showLoading('Generating report...')
       if (format === 'pdf') {
         switch (reportType) {
           case 'students':
@@ -33,10 +37,10 @@ export default function ReportDialog({ open, onOpenChange, students, teachers, p
       } else {
         generateExcelReport(students, teachers, parents, classes, schoolName)
       }
-      toast.success('Report generated successfully!')
+      modal.showSuccess('Report Generated', 'Report generated successfully!')
       onOpenChange(false)
     } catch (error) {
-      toast.error('Failed to generate report')
+      modal.showError('Generation Failed', 'Failed to generate report')
       console.error(error)
     }
   }
@@ -114,6 +118,15 @@ export default function ReportDialog({ open, onOpenChange, students, teachers, p
           </Button>
         </div>
       </DialogContent>
+      
+      <LoadingModal open={modal.loading} message={modal.loadingMessage} />
+      <StatusModal 
+        open={modal.status.open} 
+        onOpenChange={modal.closeStatus}
+        type={modal.status.type}
+        title={modal.status.title}
+        message={modal.status.message}
+      />
     </Dialog>
   )
 }

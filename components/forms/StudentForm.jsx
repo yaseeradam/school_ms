@@ -1,12 +1,13 @@
 'use client'
 
-import React from 'react'
+import React, { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ChevronLeft, Upload, Camera } from 'lucide-react'
+import { StudentDetailsModal } from '@/components/ui/student-details-modal'
 
 export default function StudentForm({ 
   studentForm, 
@@ -19,6 +20,25 @@ export default function StudentForm({
   parents,
   classes
 }) {
+  const [showDetailsModal, setShowDetailsModal] = useState(false)
+  const [createdStudent, setCreatedStudent] = useState(null)
+
+  const handleSubmit = async (e) => {
+    const result = await handleCreateStudent(e)
+    if (result && result !== false) {
+      setCreatedStudent(result)
+      setShowDetailsModal(true)
+    }
+  }
+
+  const handleCloseDetails = () => {
+    setShowDetailsModal(false)
+    setShowFormView(null)
+  }
+
+  const parentName = parents.find(p => p.id === createdStudent?.parentId)?.name || 'N/A'
+  const className = classes.find(c => c.id === createdStudent?.classId)?.name || 'N/A'
+
   return (
     <div className="max-w-4xl mx-auto">
       <div className="bg-gradient-to-r from-blue-500 to-cyan-600 text-white p-4 rounded-t-2xl shadow-lg">
@@ -30,7 +50,7 @@ export default function StudentForm({
         <p className="text-blue-100 text-sm">Fill in the student information below</p>
       </div>
       
-      <form onSubmit={handleCreateStudent} className="bg-white rounded-b-2xl shadow-lg p-6">
+      <form onSubmit={handleSubmit} className="bg-white rounded-b-2xl shadow-lg p-6">
         <div className="space-y-5">
           {/* Photo Section */}
           <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 rounded-xl border border-blue-200">
@@ -143,6 +163,14 @@ export default function StudentForm({
           </Button>
         </div>
       </form>
+      
+      <StudentDetailsModal 
+        open={showDetailsModal}
+        onOpenChange={handleCloseDetails}
+        student={createdStudent}
+        parentName={parentName}
+        className={className}
+      />
     </div>
   )
 }

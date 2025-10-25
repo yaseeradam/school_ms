@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -8,7 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge'
 import { Plus, Download, Eye, Edit, Users } from 'lucide-react'
 import { exportStudentsToCSV } from '@/lib/csv-export'
-import { toast } from 'sonner'
+import { ViewStudentModal } from '@/components/modals/ViewStudentModal'
+import { EditStudentModal } from '@/components/modals/EditStudentModal'
 
 export default function StudentsPage({ 
   students, 
@@ -19,9 +21,34 @@ export default function StudentsPage({
   setStudentSearch,
   studentFilters,
   setStudentFilters,
-  onAddStudent,
-  filterStudents
+  setShowFormView,
+  filterStudents,
+  modal,
+  onUpdateStudent
 }) {
+  const [viewStudent, setViewStudent] = useState(null)
+  const [showViewModal, setShowViewModal] = useState(false)
+  const [editStudent, setEditStudent] = useState(null)
+  const [showEditModal, setShowEditModal] = useState(false)
+
+  const handleView = (student) => {
+    setViewStudent(student)
+    setShowViewModal(true)
+  }
+
+  const handleEdit = () => {
+    setShowViewModal(false)
+    setEditStudent(viewStudent)
+    setShowEditModal(true)
+  }
+
+  const handleSave = async (updatedStudent) => {
+    setShowEditModal(false)
+    if (onUpdateStudent) {
+      await onUpdateStudent(updatedStudent)
+    }
+  }
+
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
@@ -31,7 +58,7 @@ export default function StudentsPage({
             <Download className="h-4 w-4 mr-2" />
             Export CSV
           </Button>
-          <Button onClick={onAddStudent}>
+          <Button onClick={() => setShowFormView('student')}>
             <Plus className="h-4 w-4 mr-2" />
             Add Student
           </Button>
@@ -127,10 +154,10 @@ export default function StudentsPage({
                     </TableCell>
                     <TableCell>
                       <div className="flex space-x-2">
-                        <Button size="sm" variant="outline" onClick={() => toast.info('View student details coming soon!')}>
+                        <Button size="sm" variant="outline" onClick={() => handleView(student)}>
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Button size="sm" variant="outline" onClick={() => toast.info('Edit student coming soon!')}>
+                        <Button size="sm" variant="outline" onClick={() => { setViewStudent(student); handleEdit(); }}>
                           <Edit className="h-4 w-4" />
                         </Button>
                       </div>
@@ -152,6 +179,25 @@ export default function StudentsPage({
           </CardContent>
         </Card>
       )}
+
+      <ViewStudentModal
+        open={showViewModal}
+        onOpenChange={setShowViewModal}
+        student={viewStudent}
+        parent={parents.find(p => p.id === viewStudent?.parentId)}
+        classInfo={classes.find(c => c.id === viewStudent?.classId)}
+        onEdit={handleEdit}
+        schoolName={school?.name}
+      />
+      
+      <EditStudentModal
+        open={showEditModal}
+        onOpenChange={setShowEditModal}
+        student={editStudent}
+        parents={parents}
+        classes={classes}
+        onSave={handleSave}
+      />
     </div>
   )
 }

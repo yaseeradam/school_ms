@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge'
 import { Download, UserPlus, Eye, Edit, UserCheck } from 'lucide-react'
 import { exportTeachersToCSV } from '@/lib/csv-export'
+import { ViewTeacherModal } from '@/components/modals/ViewTeacherModal'
 
 export default function TeachersPage({ 
   teachers, 
@@ -19,8 +20,21 @@ export default function TeachersPage({
   setTeacherFilters,
   setShowFormView,
   filterTeachers,
-  toast
+  modal
 }) {
+  const [viewTeacher, setViewTeacher] = useState(null)
+  const [showViewModal, setShowViewModal] = useState(false)
+
+  const handleView = (teacher) => {
+    setViewTeacher(teacher)
+    setShowViewModal(true)
+  }
+
+  const handleEdit = () => {
+    setShowViewModal(false)
+    modal?.showSuccess('Coming Soon', 'Edit functionality coming soon!')
+  }
+
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
@@ -108,10 +122,10 @@ export default function TeachersPage({
                   </TableCell>
                   <TableCell>
                     <div className="flex space-x-2">
-                      <Button size="sm" variant="outline" onClick={() => toast.info('View teacher details coming soon!')}>
+                      <Button size="sm" variant="outline" onClick={() => handleView(teacher)}>
                         <Eye className="h-4 w-4" />
                       </Button>
-                      <Button size="sm" variant="outline" onClick={() => toast.info('Edit teacher coming soon!')}>
+                      <Button size="sm" variant="outline" onClick={() => { setViewTeacher(teacher); handleEdit(); }}>
                         <Edit className="h-4 w-4" />
                       </Button>
                     </div>
@@ -132,6 +146,14 @@ export default function TeachersPage({
           </CardContent>
         </Card>
       )}
+
+      <ViewTeacherModal
+        open={showViewModal}
+        onOpenChange={setShowViewModal}
+        teacher={viewTeacher}
+        onEdit={handleEdit}
+        schoolName={school?.name}
+      />
     </div>
   )
 }

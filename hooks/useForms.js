@@ -88,12 +88,13 @@ export function useForms(apiCall, loadDashboardData, modal) {
     setIsSubmitting(true)
     modal?.showLoading('Creating student...')
     try {
-      await apiCall('students', { method: 'POST', body: JSON.stringify(studentForm) })
-      modal?.showSuccess('Student Created', 'Student created successfully!')
+      const result = await apiCall('students', { method: 'POST', body: JSON.stringify(studentForm) })
+      const createdStudent = result.student || { ...studentForm, id: result.id }
       setStudentForm({ firstName: '', lastName: '', email: '', dateOfBirth: '', gender: '', address: '', phoneNumber: '', parentId: '', classId: '', admissionNumber: '', emergencyContact: '', photo: '' })
       setStudentPhotoPreview('')
       loadDashboardData()
-      return true
+      modal?.hideLoading()
+      return createdStudent
     } catch (error) {
       modal?.showError('Creation Failed', error.message || 'Failed to create student')
       return false

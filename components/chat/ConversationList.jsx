@@ -156,7 +156,7 @@ function ConversationList({ onSelectConversation, selectedConversationId, curren
         const teachersResponse = await fetch('/api/teachers', { headers })
         if (teachersResponse.ok) {
           const teachers = await teachersResponse.json()
-          users = teachers.map(teacher => ({
+          users = teachers.filter(t => t.id && t.firstName && t.lastName).map(teacher => ({
             id: teacher.id,
             name: `${teacher.firstName} ${teacher.lastName}`,
             role: 'teacher',
@@ -167,7 +167,7 @@ function ConversationList({ onSelectConversation, selectedConversationId, curren
         const parentsResponse = await fetch('/api/parents', { headers })
         if (parentsResponse.ok) {
           const parents = await parentsResponse.json()
-          users = parents.map(parent => ({
+          users = parents.filter(p => p.id && p.name).map(parent => ({
             id: parent.id,
             name: parent.name,
             role: 'parent',
@@ -182,7 +182,7 @@ function ConversationList({ onSelectConversation, selectedConversationId, curren
 
         if (teachersRes.ok) {
           const teachers = await teachersRes.json()
-          users.push(...teachers.map(teacher => ({
+          users.push(...teachers.filter(t => t.id && t.firstName && t.lastName).map(teacher => ({
             id: teacher.id,
             name: `${teacher.firstName} ${teacher.lastName}`,
             role: 'teacher',
@@ -192,7 +192,7 @@ function ConversationList({ onSelectConversation, selectedConversationId, curren
 
         if (parentsRes.ok) {
           const parents = await parentsRes.json()
-          users.push(...parents.map(parent => ({
+          users.push(...parents.filter(p => p.id && p.name).map(parent => ({
             id: parent.id,
             name: parent.name,
             role: 'parent',
@@ -210,7 +210,9 @@ function ConversationList({ onSelectConversation, selectedConversationId, curren
         }
       })
 
-      setAvailableUsers(users.filter(u => !existingUserIds.has(u.id)))
+      const filteredUsers = users.filter(u => u.id && !existingUserIds.has(u.id))
+      setAvailableUsers(filteredUsers)
+      console.log('Available users loaded:', filteredUsers.length)
     } catch (error) {
       console.error('Error loading available users:', error)
     }
