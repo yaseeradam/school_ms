@@ -158,6 +158,7 @@ export default function ParentsPage({
         parent={viewParent}
         children={students.filter(s => s.parentId === viewParent?.id)}
         onEdit={handleEdit}
+        schoolName={school?.name}
       />
     </div>
   )

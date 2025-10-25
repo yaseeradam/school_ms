@@ -21,6 +21,7 @@ import CallDialog from './CallDialog'
 import { uploadFile } from '@/lib/file-storage'
 
 function ChatWindow({ conversation, onClose, currentUser }) {
+  const MAX_MESSAGES = 100 // Limit messages in memory
   const [messages, setMessages] = useState([])
   const [newMessage, setNewMessage] = useState('')
   const [isTyping, setIsTyping] = useState(false)
@@ -42,6 +43,7 @@ function ChatWindow({ conversation, onClose, currentUser }) {
   const typingTimeoutRef = useRef(null)
   const fileInputRef = useRef(null)
   const imageInputRef = useRef(null)
+  const isMountedRef = useRef(true)
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -52,20 +54,26 @@ function ChatWindow({ conversation, onClose, currentUser }) {
   }, [messages])
 
   useEffect(() => {
+    isMountedRef.current = true
+    
     if (conversation?.id) {
       loadMessages()
       loadOtherUserInfo()
       socketManager.joinConversation(conversation.id)
 
       const handleNewMessage = (message) => {
-        if (message.conversationId === conversation.id) {
-          setMessages(prev => [...prev, message])
+        if (message.conversationId === conversation.id && isMountedRef.current) {
+          setMessages(prev => {
+            const updated = [...prev, message]
+            // Keep only last MAX_MESSAGES to prevent memory leak
+            return updated.length > MAX_MESSAGES ? updated.slice(-MAX_MESSAGES) : updated
+          })
           markMessagesAsRead()
         }
       }
 
       const handleMessagesRead = (data) => {
-        if (data.conversationId === conversation.id) {
+        if (data.conversationId === conversation.id && isMountedRef.current) {
           setMessages(prev => prev.map(msg =>
             msg.senderId !== currentUser.id && !msg.readBy?.includes(data.readBy)
               ? { ...msg, readBy: [...(msg.readBy || []), data.readBy] }
@@ -75,13 +83,13 @@ function ChatWindow({ conversation, onClose, currentUser }) {
       }
 
       const handleUserTyping = (data) => {
-        if (data.conversationId === conversation.id && data.userId !== currentUser.id) {
+        if (data.conversationId === conversation.id && data.userId !== currentUser.id && isMountedRef.current) {
           setTypingUsers(prev => [...new Set([...prev, data.userId])])
         }
       }
 
       const handleUserStoppedTyping = (data) => {
-        if (data.conversationId === conversation.id) {
+        if (data.conversationId === conversation.id && isMountedRef.current) {
           setTypingUsers(prev => prev.filter(id => id !== data.userId))
         }
       }
@@ -92,6 +100,17 @@ function ChatWindow({ conversation, onClose, currentUser }) {
       socketManager.on('user_stopped_typing', handleUserStoppedTyping)
 
       return () => {
+        isMountedRef.current = false
+        // Clear all timeouts
+        if (typingTimeoutRef.current) {
+          clearTimeout(typingTimeoutRef.current)
+          typingTimeoutRef.current = null
+        }
+        if (recordingIntervalRef.current) {
+          clearInterval(recordingIntervalRef.current)
+          recordingIntervalRef.current = null
+        }
+        // Remove socket listeners
         socketManager.off('new_message', handleNewMessage)
         socketManager.off('messages_read', handleMessagesRead)
         socketManager.off('user_typing', handleUserTyping)
@@ -99,17 +118,25 @@ function ChatWindow({ conversation, onClose, currentUser }) {
         socketManager.leaveConversation(conversation.id)
       }
     }
+    
+    return () => {
+      isMountedRef.current = false
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
+      if (recordingIntervalRef.current) clearInterval(recordingIntervalRef.current)
+    }
   }, [conversation?.id, currentUser.id])
 
   const loadMessages = async () => {
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch(`/api/chat/messages?conversationId=${conversation.id}`, {
+      const response = await fetch(`/api/chat/messages?conversationId=${conversation.id}&limit=${MAX_MESSAGES}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
-      if (response.ok) {
+      if (response.ok && isMountedRef.current) {
         const data = await response.json()
-        setMessages(data)
+        // Limit messages to prevent memory issues
+        const limitedData = data.slice(-MAX_MESSAGES)
+        setMessages(limitedData)
         markMessagesAsRead()
       }
     } catch (error) {
@@ -258,6 +285,10 @@ function ChatWindow({ conversation, onClose, currentUser }) {
       setIsTyping(false)
       socketManager.stopTyping(conversation.id)
     }
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current)
+      typingTimeoutRef.current = null
+    }
   }
 
   const formatTime = (timestamp) => {
@@ -366,6 +397,7 @@ function ChatWindow({ conversation, onClose, currentUser }) {
     setRecordingTime(0)
     if (recordingIntervalRef.current) {
       clearInterval(recordingIntervalRef.current)
+      recordingIntervalRef.current = null
     }
   }
 

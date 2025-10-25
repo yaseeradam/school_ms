@@ -29,6 +29,7 @@ import {
 import socketManager from '@/lib/socket-client'
 
 function NotificationCenter({ currentUser, isOpen, onToggle }) {
+  const MAX_NOTIFICATIONS = 50 // Limit notifications in memory
   const [notifications, setNotifications] = useState([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [preferences, setPreferences] = useState({
@@ -42,15 +43,25 @@ function NotificationCenter({ currentUser, isOpen, onToggle }) {
   })
   const [showSettings, setShowSettings] = useState(false)
   const [soundEnabled, setSoundEnabled] = useState(true)
+  const audioContextRef = useRef(null)
+  const notificationTimeoutsRef = useRef(new Set())
+  const isMountedRef = useRef(true)
 
   // Load notifications on mount
   useEffect(() => {
+    isMountedRef.current = true
     loadNotifications()
     loadPreferences()
 
     // Set up socket event listeners
     const handleNewNotification = (notification) => {
-      setNotifications(prev => [notification, ...prev])
+      if (!isMountedRef.current) return
+      
+      setNotifications(prev => {
+        const updated = [notification, ...prev]
+        // Limit notifications to prevent memory leak
+        return updated.slice(0, MAX_NOTIFICATIONS)
+      })
       setUnreadCount(prev => prev + 1)
 
       // Play sound if enabled
@@ -65,6 +76,7 @@ function NotificationCenter({ currentUser, isOpen, onToggle }) {
     }
 
     const handleNotificationRead = (notificationId) => {
+      if (!isMountedRef.current) return
       setNotifications(prev =>
         prev.map(notif =>
           notif.id === notificationId ? { ...notif, read: true } : notif
@@ -74,11 +86,11 @@ function NotificationCenter({ currentUser, isOpen, onToggle }) {
     }
 
     const handleUnreadCount = (count) => {
-      setUnreadCount(count)
+      if (isMountedRef.current) setUnreadCount(count)
     }
 
     const handlePreferences = (prefs) => {
-      setPreferences(prefs)
+      if (isMountedRef.current) setPreferences(prefs)
     }
 
     socketManager.on('notification', handleNewNotification)
@@ -92,6 +104,16 @@ function NotificationCenter({ currentUser, isOpen, onToggle }) {
     }
 
     return () => {
+      isMountedRef.current = false
+      // Clear all notification timeouts
+      notificationTimeoutsRef.current.forEach(timeout => clearTimeout(timeout))
+      notificationTimeoutsRef.current.clear()
+      // Close audio context if exists
+      if (audioContextRef.current) {
+        audioContextRef.current.close()
+        audioContextRef.current = null
+      }
+      // Remove socket listeners
       socketManager.off('notification', handleNewNotification)
       socketManager.off('notification_read', handleNotificationRead)
       socketManager.off('unread_count', handleUnreadCount)
@@ -119,42 +141,63 @@ function NotificationCenter({ currentUser, isOpen, onToggle }) {
   }
 
   const playNotificationSound = () => {
-    // Create a simple beep sound
-    const audioContext = new (window.AudioContext || window.webkitAudioContext)()
-    const oscillator = audioContext.createOscillator()
-    const gainNode = audioContext.createGain()
+    try {
+      // Reuse or create audio context
+      if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
+        audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)()
+      }
+      
+      const audioContext = audioContextRef.current
+      const oscillator = audioContext.createOscillator()
+      const gainNode = audioContext.createGain()
 
-    oscillator.connect(gainNode)
-    gainNode.connect(audioContext.destination)
+      oscillator.connect(gainNode)
+      gainNode.connect(audioContext.destination)
 
-    oscillator.frequency.setValueAtTime(800, audioContext.currentTime)
-    oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.1)
+      oscillator.frequency.setValueAtTime(800, audioContext.currentTime)
+      oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.1)
 
-    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime)
-    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3)
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime)
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3)
 
-    oscillator.start(audioContext.currentTime)
-    oscillator.stop(audioContext.currentTime + 0.3)
+      oscillator.start(audioContext.currentTime)
+      oscillator.stop(audioContext.currentTime + 0.3)
+      
+      // Clean up oscillator after it stops
+      oscillator.onended = () => {
+        oscillator.disconnect()
+        gainNode.disconnect()
+      }
+    } catch (error) {
+      console.error('Error playing notification sound:', error)
+    }
   }
 
   const showBrowserNotification = (notification) => {
-    const browserNotification = new Notification(notification.title, {
-      body: notification.message,
-      icon: '/favicon.ico',
-      badge: '/favicon.ico',
-      tag: notification.id
-    })
+    try {
+      const browserNotification = new Notification(notification.title, {
+        body: notification.message,
+        icon: '/favicon.ico',
+        badge: '/favicon.ico',
+        tag: notification.id
+      })
 
-    browserNotification.onclick = () => {
-      window.focus()
-      onToggle()
-      browserNotification.close()
+      browserNotification.onclick = () => {
+        window.focus()
+        onToggle()
+        browserNotification.close()
+      }
+
+      // Auto close after 5 seconds and track timeout
+      const timeoutId = setTimeout(() => {
+        browserNotification.close()
+        notificationTimeoutsRef.current.delete(timeoutId)
+      }, 5000)
+      
+      notificationTimeoutsRef.current.add(timeoutId)
+    } catch (error) {
+      console.error('Error showing browser notification:', error)
     }
-
-    // Auto close after 5 seconds
-    setTimeout(() => {
-      browserNotification.close()
-    }, 5000)
   }
 
   const markAsRead = async (notificationId) => {

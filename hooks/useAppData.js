@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { toast } from 'sonner'
 
 export function useAppData(user, token) {
@@ -12,6 +12,7 @@ export function useAppData(user, token) {
   const [attendance, setAttendance] = useState([])
   const [notifications, setNotifications] = useState([])
   const [schools, setSchools] = useState([])
+  const isMountedRef = useRef(true)
 
   const apiCall = async (endpoint, options = {}) => {
     try {
@@ -42,7 +43,9 @@ export function useAppData(user, token) {
     }
   }
 
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
+    if (!isMountedRef.current) return
+    
     try {
       // Show loading toast for long operations
       const loadingToast = toast.loading('🔄 Loading dashboard data...')
@@ -53,13 +56,15 @@ export function useAppData(user, token) {
         user.role !== 'developer' ? apiCall('subjects') : Promise.resolve([])
       ])
       
+      if (!isMountedRef.current) return
+      
       setStats(statsData)
       setClasses(classesData)
       setSubjects(subjectsData)
       
       if (user.role === 'developer') {
         const schoolsData = await apiCall('master/schools')
-        setSchools(schoolsData)
+        if (isMountedRef.current) setSchools(schoolsData)
       } else if (user.role === 'school_admin') {
         const [studentsData, teachersData, parentsData, assignmentsData] = await Promise.all([
           apiCall('students'),
@@ -67,24 +72,26 @@ export function useAppData(user, token) {
           apiCall('parents'),
           apiCall('teacher-assignments')
         ])
-        setStudents(studentsData)
-        setTeachers(teachersData)
-        setParents(parentsData)
-        setAssignments(assignmentsData)
+        if (isMountedRef.current) {
+          setStudents(studentsData)
+          setTeachers(teachersData)
+          setParents(parentsData)
+          setAssignments(assignmentsData)
+        }
       } else if (user.role === 'teacher') {
         const assignmentsData = await apiCall('teacher-assignments')
-        setAssignments(assignmentsData)
+        if (isMountedRef.current) setAssignments(assignmentsData)
       } else if (user.role === 'parent') {
         const childrenData = await apiCall('parent/students')
-        setStudents(childrenData)
+        if (isMountedRef.current) setStudents(childrenData)
       }
       
       toast.dismiss(loadingToast)
-      toast.success('✅ Dashboard loaded successfully!')
+      if (isMountedRef.current) toast.success('✅ Dashboard loaded successfully!')
     } catch (error) {
-      toast.error('❌ Failed to load dashboard data')
+      if (isMountedRef.current) toast.error('❌ Failed to load dashboard data')
     }
-  }
+  }, [user?.role, apiCall])
 
   const loadNotifications = async () => {
     try {
