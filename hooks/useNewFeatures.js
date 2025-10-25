@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
-import { toast } from 'sonner'
 
-export function useNewFeatures(user, token, apiCall, loadDashboardData) {
+export function useNewFeatures(user, token, apiCall, loadDashboardData, modal) {
   const [timetables, setTimetables] = useState([])
   const [exams, setExams] = useState([])
   const [fees, setFees] = useState([])
@@ -52,6 +51,7 @@ export function useNewFeatures(user, token, apiCall, loadDashboardData) {
 
   const handleTimetableSubmit = async (e, form, setShowModal) => {
     e.preventDefault()
+    modal?.showLoading('Saving timetable...')
     const newData = { ...form, _id: form._id || Date.now().toString() }
     let updated
     if (form._id) {
@@ -61,19 +61,21 @@ export function useNewFeatures(user, token, apiCall, loadDashboardData) {
     }
     setTimetables(updated)
     localStorage.setItem('timetables', JSON.stringify(updated))
-    toast.success('Timetable updated successfully!')
+    modal?.showSuccess('Timetable Saved', 'Timetable updated successfully!')
     setShowModal(false)
   }
 
   const handleTimetableDelete = async (id) => {
+    modal?.showLoading('Deleting period...')
     const updated = timetables.filter(t => t._id !== id)
     setTimetables(updated)
     localStorage.setItem('timetables', JSON.stringify(updated))
-    toast.success('Period deleted successfully!')
+    modal?.showSuccess('Period Deleted', 'Period deleted successfully!')
   }
 
   const handleExamSubmit = async (e, form, setShowModal) => {
     e.preventDefault()
+    modal?.showLoading('Saving exam...')
     const newData = { ...form, _id: form._id || Date.now().toString(), grades: form.grades || [] }
     let updated
     if (form._id) {
@@ -83,12 +85,13 @@ export function useNewFeatures(user, token, apiCall, loadDashboardData) {
     }
     setExams(updated)
     localStorage.setItem('exams', JSON.stringify(updated))
-    toast.success('Exam saved successfully!')
+    modal?.showSuccess('Exam Saved', 'Exam saved successfully!')
     setShowModal(false)
   }
 
   const handleGradeSubmit = async (e, gradeForm, setShowGradeModal) => {
     e.preventDefault()
+    modal?.showLoading('Adding grade...')
     const updated = exams.map(ex => {
       if (ex._id === gradeForm.examId) {
         return { ...ex, grades: [...(ex.grades || []), gradeForm] }
@@ -97,51 +100,56 @@ export function useNewFeatures(user, token, apiCall, loadDashboardData) {
     })
     setExams(updated)
     localStorage.setItem('exams', JSON.stringify(updated))
-    toast.success('Grade added successfully!')
+    modal?.showSuccess('Grade Added', 'Grade added successfully!')
     setShowGradeModal(false)
   }
 
   const handleFeeSubmit = async (e, form, setShowModal) => {
     e.preventDefault()
+    modal?.showLoading('Adding fee...')
     const newData = { ...form, _id: Date.now().toString(), paid: 0 }
     const updated = [...fees, newData]
     setFees(updated)
     localStorage.setItem('fees', JSON.stringify(updated))
-    toast.success('Fee added successfully!')
+    modal?.showSuccess('Fee Added', 'Fee added successfully!')
     setShowModal(false)
   }
 
   const handlePayment = async (e, paymentForm, setShowPaymentModal) => {
     e.preventDefault()
+    modal?.showLoading('Recording payment...')
     const updated = fees.map(f => f.studentId === paymentForm.studentId ? { ...f, paid: (f.paid || 0) + parseFloat(paymentForm.amount) } : f)
     setFees(updated)
     localStorage.setItem('fees', JSON.stringify(updated))
-    toast.success('Payment recorded successfully!')
+    modal?.showSuccess('Payment Recorded', 'Payment recorded successfully!')
     setShowPaymentModal(false)
   }
 
   const handleHomeworkSubmit = async (e, form, setShowModal) => {
     e.preventDefault()
+    modal?.showLoading('Assigning homework...')
     const newData = { ...form, _id: Date.now().toString(), submissions: [] }
     const updated = [...homework, newData]
     setHomework(updated)
     localStorage.setItem('homework', JSON.stringify(updated))
-    toast.success('Homework assigned successfully!')
+    modal?.showSuccess('Homework Assigned', 'Homework assigned successfully!')
     setShowModal(false)
   }
 
   const handleBookSubmit = async (e, form, setShowModal) => {
     e.preventDefault()
+    modal?.showLoading('Adding book...')
     const newData = { ...form, _id: Date.now().toString(), issuedTo: [] }
     const updated = [...books, newData]
     setBooks(updated)
     localStorage.setItem('books', JSON.stringify(updated))
-    toast.success('Book added successfully!')
+    modal?.showSuccess('Book Added', 'Book added successfully!')
     setShowModal(false)
   }
 
   const handleIssueBook = async (e, issueForm, setShowIssueModal) => {
     e.preventDefault()
+    modal?.showLoading('Issuing book...')
     const updated = books.map(b => {
       if (b._id === issueForm.bookId) {
         return { ...b, available: b.available - 1, issuedTo: [...(b.issuedTo || []), { ...issueForm, issuedDate: new Date().toISOString() }] }
@@ -150,11 +158,12 @@ export function useNewFeatures(user, token, apiCall, loadDashboardData) {
     })
     setBooks(updated)
     localStorage.setItem('books', JSON.stringify(updated))
-    toast.success('Book issued successfully!')
+    modal?.showSuccess('Book Issued', 'Book issued successfully!')
     setShowIssueModal(false)
   }
 
   const handleReturnBook = async (bookId, studentId) => {
+    modal?.showLoading('Returning book...')
     const updated = books.map(b => {
       if (b._id === bookId) {
         return { ...b, available: b.available + 1, issuedTo: (b.issuedTo || []).filter(i => i.studentId !== studentId) }
@@ -163,11 +172,12 @@ export function useNewFeatures(user, token, apiCall, loadDashboardData) {
     })
     setBooks(updated)
     localStorage.setItem('books', JSON.stringify(updated))
-    toast.success('Book returned successfully!')
+    modal?.showSuccess('Book Returned', 'Book returned successfully!')
   }
 
   const handleEventSubmit = async (e, form, setShowModal) => {
     e.preventDefault()
+    modal?.showLoading('Saving event...')
     const newData = { ...form, _id: form._id || Date.now().toString() }
     let updated
     if (form._id) {
@@ -177,46 +187,51 @@ export function useNewFeatures(user, token, apiCall, loadDashboardData) {
     }
     setEvents(updated)
     localStorage.setItem('events', JSON.stringify(updated))
-    toast.success('Event saved successfully!')
+    modal?.showSuccess('Event Saved', 'Event saved successfully!')
     setShowModal(false)
   }
 
   const handleEventDelete = async (id) => {
+    modal?.showLoading('Deleting event...')
     const updated = events.filter(e => e._id !== id)
     setEvents(updated)
     localStorage.setItem('events', JSON.stringify(updated))
-    toast.success('Event deleted successfully!')
+    modal?.showSuccess('Event Deleted', 'Event deleted successfully!')
   }
 
   const handleBehaviorSubmit = async (e, form, setShowModal) => {
     e.preventDefault()
+    modal?.showLoading('Recording behavior...')
     const newData = { ...form, _id: Date.now().toString() }
     const updated = [...behaviors, newData]
     setBehaviors(updated)
     localStorage.setItem('behaviors', JSON.stringify(updated))
-    toast.success('Behavior recorded successfully!')
+    modal?.showSuccess('Behavior Recorded', 'Behavior recorded successfully!')
     setShowModal(false)
   }
 
   const handleRouteSubmit = async (e, form, setShowModal) => {
     e.preventDefault()
+    modal?.showLoading('Adding route...')
     const newData = { ...form, _id: Date.now().toString() }
     const updated = [...routes, newData]
     setRoutes(updated)
     localStorage.setItem('routes', JSON.stringify(updated))
-    toast.success('Route added successfully!')
+    modal?.showSuccess('Route Added', 'Route added successfully!')
     setShowModal(false)
   }
 
   const handleAssignRoute = async (e, assignForm, setShowAssignModal) => {
     e.preventDefault()
-    toast.success('Student assigned to route!')
+    modal?.showLoading('Assigning route...')
+    modal?.showSuccess('Route Assigned', 'Student assigned to route!')
     setShowAssignModal(false)
     loadDashboardData()
   }
 
   const handleHealthSubmit = async (e, form, setShowModal) => {
     e.preventDefault()
+    modal?.showLoading('Saving health record...')
     const newData = { ...form, _id: form._id || Date.now().toString() }
     let updated
     if (form._id) {
@@ -226,7 +241,7 @@ export function useNewFeatures(user, token, apiCall, loadDashboardData) {
     }
     setHealthRecords(updated)
     localStorage.setItem('healthRecords', JSON.stringify(updated))
-    toast.success('Health record saved successfully!')
+    modal?.showSuccess('Health Record Saved', 'Health record saved successfully!')
     setShowModal(false)
   }
 

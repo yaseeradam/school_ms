@@ -26,19 +26,27 @@ export function useAppData(user, token) {
       
       if (!response.ok) {
         const error = await response.json()
-        throw new Error(error.error || 'API Error')
+        const errorMessage = error.error || `HTTP ${response.status}: ${response.statusText}`
+        throw new Error(errorMessage)
       }
       
       return await response.json()
     } catch (error) {
       console.error('API Error:', error)
-      toast.error(error.message || 'Something went wrong')
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        toast.error('❌ Network error: Please check your connection')
+      } else {
+        toast.error('❌ ' + (error.message || 'Something went wrong'))
+      }
       throw error
     }
   }
 
   const loadDashboardData = async () => {
     try {
+      // Show loading toast for long operations
+      const loadingToast = toast.loading('🔄 Loading dashboard data...')
+      
       const [statsData, classesData, subjectsData] = await Promise.all([
         apiCall('dashboard/stats'),
         user.role !== 'developer' ? apiCall('classes') : Promise.resolve([]),
@@ -70,8 +78,11 @@ export function useAppData(user, token) {
         const childrenData = await apiCall('parent/students')
         setStudents(childrenData)
       }
+      
+      toast.dismiss(loadingToast)
+      toast.success('✅ Dashboard loaded successfully!')
     } catch (error) {
-      // Error already handled in apiCall
+      toast.error('❌ Failed to load dashboard data')
     }
   }
 

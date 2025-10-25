@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
-import { toast } from 'sonner'
 
-export function useAttendance(user, apiCall, students, teachers, loadTodayAttendance) {
+export function useAttendance(user, apiCall, students, teachers, loadTodayAttendance, modal) {
   const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split('T')[0])
   const [selectedClass, setSelectedClass] = useState('')
   const [attendanceList, setAttendanceList] = useState([])
@@ -50,6 +49,7 @@ export function useAttendance(user, apiCall, students, teachers, loadTodayAttend
   }
 
   const handleMarkAttendance = async () => {
+    modal?.showLoading('Marking attendance...')
     try {
       if (user.role === 'school_admin') {
         const attendanceData = attendanceList.map(item => ({ teacherId: item.teacherId, date: attendanceDate, status: item.status }))
@@ -58,10 +58,12 @@ export function useAttendance(user, apiCall, students, teachers, loadTodayAttend
         const attendanceData = attendanceList.map(item => ({ studentId: item.studentId, classId: selectedClass, date: attendanceDate, status: item.status }))
         await apiCall('attendance/bulk', { method: 'POST', body: JSON.stringify({ attendanceList: attendanceData }) })
       }
-      toast.success('Attendance marked successfully!')
+      modal?.showSuccess('Attendance Marked', 'Attendance marked successfully!')
       setShowAttendanceModal(false)
       loadTodayAttendance()
-    } catch (error) {}
+    } catch (error) {
+      modal?.showError('Marking Failed', error.message || 'Failed to mark attendance')
+    }
   }
 
   useEffect(() => {

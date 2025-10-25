@@ -1,7 +1,6 @@
 import { useState } from 'react'
-import { toast } from 'sonner'
 
-export function useForms(apiCall, loadDashboardData) {
+export function useForms(apiCall, loadDashboardData, modal) {
   const [teacherForm, setTeacherForm] = useState({
     teacherData: { firstName: '', lastName: '', email: '', phoneNumber: '', address: '', qualification: '', experience: '', specialization: '', dateOfJoining: '', photo: '' },
     credentials: { email: '', password: '' }
@@ -26,8 +25,8 @@ export function useForms(apiCall, loadDashboardData) {
   const handlePhotoUpload = (e, formType) => {
     const file = e.target.files[0]
     if (!file) return
-    if (!file.type.startsWith('image/')) return toast.error('Please select an image file')
-    if (file.size > 5 * 1024 * 1024) return toast.error('Image size should be less than 5MB')
+    if (!file.type.startsWith('image/')) return modal?.showError('Invalid File', 'Please select an image file')
+    if (file.size > 5 * 1024 * 1024) return modal?.showError('File Too Large', 'Image size should be less than 5MB')
 
     const reader = new FileReader()
     reader.onloadend = () => {
@@ -49,14 +48,16 @@ export function useForms(apiCall, loadDashboardData) {
   const handleCreateTeacher = async (e) => {
     e.preventDefault()
     setIsSubmitting(true)
+    modal?.showLoading('Creating teacher...')
     try {
       const result = await apiCall('teachers', { method: 'POST', body: JSON.stringify(teacherForm) })
-      toast.success(`Teacher created successfully! Login: ${result.credentials.email} / ${result.credentials.tempPassword}`)
+      modal?.showSuccess('Teacher Created', `Login: ${result.credentials.email} / ${result.credentials.tempPassword}`)
       setTeacherForm({ teacherData: { firstName: '', lastName: '', email: '', phoneNumber: '', address: '', qualification: '', experience: '', specialization: '', dateOfJoining: '', photo: '' }, credentials: { email: '', password: '' } })
       setTeacherPhotoPreview('')
       loadDashboardData()
       return true
     } catch (error) {
+      modal?.showError('Creation Failed', error.message || 'Failed to create teacher')
       return false
     } finally {
       setIsSubmitting(false)
@@ -66,14 +67,16 @@ export function useForms(apiCall, loadDashboardData) {
   const handleCreateParent = async (e) => {
     e.preventDefault()
     setIsSubmitting(true)
+    modal?.showLoading('Creating parent account...')
     try {
       const result = await apiCall('parents', { method: 'POST', body: JSON.stringify(parentForm) })
-      toast.success(`Parent account created successfully! Login: ${result.credentials.email} / ${result.credentials.tempPassword}`)
+      modal?.showSuccess('Parent Created', `Login: ${result.credentials.email} / ${result.credentials.tempPassword}`)
       setParentForm({ parentData: { name: '', phoneNumber: '', address: '', photo: '' }, parentCredentials: { email: '', password: '' } })
       setParentPhotoPreview('')
       loadDashboardData()
       return true
     } catch (error) {
+      modal?.showError('Creation Failed', error.message || 'Failed to create parent')
       return false
     } finally {
       setIsSubmitting(false)
@@ -83,14 +86,16 @@ export function useForms(apiCall, loadDashboardData) {
   const handleCreateStudent = async (e) => {
     e.preventDefault()
     setIsSubmitting(true)
+    modal?.showLoading('Creating student...')
     try {
       await apiCall('students', { method: 'POST', body: JSON.stringify(studentForm) })
-      toast.success('Student created successfully!')
+      modal?.showSuccess('Student Created', 'Student created successfully!')
       setStudentForm({ firstName: '', lastName: '', email: '', dateOfBirth: '', gender: '', address: '', phoneNumber: '', parentId: '', classId: '', admissionNumber: '', emergencyContact: '', photo: '' })
       setStudentPhotoPreview('')
       loadDashboardData()
       return true
     } catch (error) {
+      modal?.showError('Creation Failed', error.message || 'Failed to create student')
       return false
     } finally {
       setIsSubmitting(false)
@@ -99,44 +104,56 @@ export function useForms(apiCall, loadDashboardData) {
 
   const handleCreateClass = async (e) => {
     e.preventDefault()
+    modal?.showLoading('Creating class...')
     try {
       await apiCall('classes', { method: 'POST', body: JSON.stringify(classForm) })
-      toast.success('Class created successfully!')
+      modal?.showSuccess('Class Created', 'Class created successfully!')
       setClassForm({ name: '', description: '', capacity: '', academicYear: new Date().getFullYear().toString() })
       loadDashboardData()
-    } catch (error) {}
+    } catch (error) {
+      modal?.showError('Creation Failed', error.message || 'Failed to create class')
+    }
   }
 
   const handleCreateSubject = async (e) => {
     e.preventDefault()
+    modal?.showLoading('Creating subject...')
     try {
       await apiCall('subjects', { method: 'POST', body: JSON.stringify(subjectForm) })
-      toast.success('Subject created successfully!')
+      modal?.showSuccess('Subject Created', 'Subject created successfully!')
       setSubjectForm({ name: '', code: '', description: '', credits: '' })
       loadDashboardData()
-    } catch (error) {}
+    } catch (error) {
+      modal?.showError('Creation Failed', error.message || 'Failed to create subject')
+    }
   }
 
   const handleCreateAssignment = async (e, subjects, classes) => {
     e.preventDefault()
+    modal?.showLoading('Assigning teacher...')
     try {
       const selectedSubject = subjects.find(s => s.id === assignmentForm.subjectId)
       const selectedClass = classes.find(c => c.id === assignmentForm.classId)
       await apiCall('teacher-assignments', { method: 'POST', body: JSON.stringify({ ...assignmentForm, subjectName: selectedSubject?.name || '', className: selectedClass?.name || '' }) })
-      toast.success('Teacher assigned successfully!')
+      modal?.showSuccess('Assignment Created', 'Teacher assigned successfully!')
       setAssignmentForm({ teacherId: '', classId: '', subjectId: '', subjectName: '', className: '' })
       loadDashboardData()
-    } catch (error) {}
+    } catch (error) {
+      modal?.showError('Assignment Failed', error.message || 'Failed to assign teacher')
+    }
   }
 
   const handleCreateSchool = async (e) => {
     e.preventDefault()
+    modal?.showLoading('Creating school...')
     try {
       await apiCall('master/schools', { method: 'POST', body: JSON.stringify(masterSchoolForm) })
-      toast.success('School created successfully!')
+      modal?.showSuccess('School Created', 'School created successfully!')
       setMasterSchoolForm({ schoolName: '', adminName: '', adminEmail: '', adminPassword: '' })
       loadDashboardData()
-    } catch (error) {}
+    } catch (error) {
+      modal?.showError('Creation Failed', error.message || 'Failed to create school')
+    }
   }
 
   return {

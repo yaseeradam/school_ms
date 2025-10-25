@@ -3,7 +3,9 @@
 import React, { useState, useEffect } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { School } from 'lucide-react'
-import { toast } from 'sonner'
+import { useModal } from '@/hooks/useModal'
+import { LoadingModal } from '@/components/ui/loading-modal'
+import { StatusModal } from '@/components/ui/status-modal'
 import { useAppData } from '@/hooks/useAppData'
 import { useForms } from '@/hooks/useForms'
 import { useFilters } from '@/hooks/useFilters'
@@ -92,12 +94,13 @@ function App() {
   const [healthForm, setHealthForm] = useState({})
   const [selectedStudent, setSelectedStudent] = useState(null)
 
+  const modal = useModal()
   const { stats, students, teachers, parents, classes, subjects, assignments, attendance, notifications, schools, setStudents, setTeachers, setParents, setClasses, setSubjects, setAssignments, setAttendance, setNotifications, setSchools, apiCall, loadDashboardData, loadNotifications, loadTodayAttendance } = useAppData(user, token)
   
-  const formHandlers = useForms(apiCall, loadDashboardData)
+  const formHandlers = useForms(apiCall, loadDashboardData, modal)
   const filterHandlers = useFilters()
-  const attendanceHandlers = useAttendance(user, apiCall, students, teachers, loadTodayAttendance)
-  const newFeatures = useNewFeatures(user, token, apiCall, loadDashboardData)
+  const attendanceHandlers = useAttendance(user, apiCall, students, teachers, loadTodayAttendance, modal)
+  const newFeatures = useNewFeatures(user, token, apiCall, loadDashboardData, modal)
 
   useEffect(() => {
     const savedToken = localStorage.getItem('token')
@@ -121,6 +124,7 @@ function App() {
 
   const handleAuth = async (authData) => {
     try {
+      modal.showLoading('Logging in...')
       const result = await apiCall('auth/login', { method: 'POST', body: JSON.stringify(authData) })
       setToken(result.token)
       setUser(result.user)
@@ -128,49 +132,60 @@ function App() {
       localStorage.setItem('token', result.token)
       localStorage.setItem('user', JSON.stringify(result.user))
       if (result.school) localStorage.setItem('school', JSON.stringify(result.school))
-      toast.success('Logged in successfully!')
-    } catch (error) {}
+      modal.showSuccess('Login Successful', 'Welcome to EduManage!')
+    } catch (error) {
+      modal.showError('Login Failed', error.message || 'Please check your credentials')
+    }
   }
 
   const handleLogout = () => {
-    setUser(null)
-    setSchool(null)
-    setToken(null)
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
-    localStorage.removeItem('school')
-    toast.success('Logged out successfully')
+    try {
+      modal.showLoading('Logging out...')
+      setUser(null)
+      setSchool(null)
+      setToken(null)
+      localStorage.removeItem('token')
+      localStorage.removeItem('user')
+      localStorage.removeItem('school')
+      modal.showSuccess('Logged Out', 'See you soon!')
+    } catch (error) {
+      modal.showError('Logout Error', 'An error occurred during logout')
+    }
   }
 
   const handleLogoUpload = async (e) => {
     const file = e.target.files[0]
     if (!file) return
-    if (!file.type.startsWith('image/')) return toast.error('Please select an image file')
-    if (file.size > 2 * 1024 * 1024) return toast.error('Image size should be less than 2MB')
+    if (!file.type.startsWith('image/')) return modal.showError('Invalid File', 'Please select an image file')
+    if (file.size > 2 * 1024 * 1024) return modal.showError('File Too Large', 'Image size should be less than 2MB')
     try {
+      modal.showLoading('Uploading logo...')
       const formData = new FormData()
       formData.append('file', file)
       const response = await fetch('/api/upload', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: formData })
       if (!response.ok) throw new Error('Upload failed')
       const data = await response.json()
       setSchoolSettings(prev => ({ ...prev, logo: data.url }))
-      toast.success('Logo uploaded successfully!')
+      modal.showSuccess('Upload Successful', 'Logo uploaded successfully!')
     } catch (error) {
-      toast.error('Failed to upload logo')
+      modal.showError('Upload Failed', 'Failed to upload logo')
     }
   }
 
   const handleSaveSettings = async (e) => {
     e.preventDefault()
     try {
+      modal.showLoading('Saving settings...')
       await apiCall('school/settings', { method: 'POST', body: JSON.stringify(schoolSettings) })
-      toast.success('Settings saved successfully!')
       if (school) {
         const updatedSchool = { ...school, name: schoolSettings.schoolName, logo: schoolSettings.logo }
         setSchool(updatedSchool)
         localStorage.setItem('school', JSON.stringify(updatedSchool))
       }
-    } catch (error) {}
+      modal.showSuccess('Settings Saved', 'Settings saved successfully!')
+    } catch (error) {
+      modal.showError('Save Failed', error.message || 'Please try again')
+    }
   }
 
   const getNavigationItems = () => {
@@ -203,7 +218,20 @@ function App() {
     }
   }
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100"><div className="text-center"><div className="relative"><div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div><School className="h-8 w-8 text-blue-600 mx-auto mb-4 absolute top-4 left-1/2 transform -translate-x-1/2" /></div><p className="text-gray-600">Loading EduManage...</p></div></div>
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="text-center">
+        <div className="relative">
+          <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
+          <School className="h-8 w-8 text-blue-600 mx-auto mb-4 absolute top-4 left-1/2 transform -translate-x-1/2" />
+        </div>
+        <p className="text-gray-600 animate-pulse">Loading EduManage...</p>
+        <div className="mt-4 w-64 bg-gray-200 rounded-full h-2 mx-auto">
+          <div className="bg-blue-600 h-2 rounded-full animate-pulse" style={{width: '60%'}}></div>
+        </div>
+      </div>
+    </div>
+  )
   if (!user) return <LoginPage onLogin={handleAuth} />
 
   return (
@@ -220,9 +248,9 @@ function App() {
       {showFormView === 'parent' && <ParentForm {...formHandlers} setShowFormView={setShowFormView} />}
       {showFormView === 'student' && <StudentForm {...formHandlers} setShowFormView={setShowFormView} parents={parents} classes={classes} />}
       
-      {activeTab === 'teachers' && user.role === 'school_admin' && !showFormView && <TeachersPage teachers={teachers} school={school} {...filterHandlers} setShowFormView={setShowFormView} toast={toast} />}
-      {activeTab === 'parents' && user.role === 'school_admin' && !showFormView && <ParentsPage parents={parents} students={students} school={school} {...filterHandlers} setShowFormView={setShowFormView} toast={toast} />}
-      {activeTab === 'students' && user.role === 'school_admin' && !showFormView && <StudentsPage students={students} classes={classes} parents={parents} school={school} {...filterHandlers} setShowFormView={setShowFormView} toast={toast} />}
+      {activeTab === 'teachers' && user.role === 'school_admin' && !showFormView && <TeachersPage teachers={teachers} school={school} {...filterHandlers} setShowFormView={setShowFormView} modal={modal} />}
+      {activeTab === 'parents' && user.role === 'school_admin' && !showFormView && <ParentsPage parents={parents} students={students} school={school} {...filterHandlers} setShowFormView={setShowFormView} modal={modal} />}
+      {activeTab === 'students' && user.role === 'school_admin' && !showFormView && <StudentsPage students={students} classes={classes} parents={parents} school={school} {...filterHandlers} setShowFormView={setShowFormView} modal={modal} />}
       {activeTab === 'classes' && user.role === 'school_admin' && <ClassesPage classes={classes} students={students} showClassModal={showClassModal} setShowClassModal={setShowClassModal} classForm={formHandlers.classForm} setClassForm={formHandlers.setClassForm} handleCreateClass={formHandlers.handleCreateClass} />}
       {activeTab === 'subjects' && user.role === 'school_admin' && <SubjectsPage subjects={subjects} showSubjectModal={showSubjectModal} setShowSubjectModal={setShowSubjectModal} subjectForm={formHandlers.subjectForm} setSubjectForm={formHandlers.setSubjectForm} handleCreateSubject={formHandlers.handleCreateSubject} />}
       {activeTab === 'assignments' && user.role === 'school_admin' && <AssignmentsPage assignments={assignments} teachers={teachers} classes={classes} subjects={subjects} showAssignmentModal={showAssignmentModal} setShowAssignmentModal={setShowAssignmentModal} assignmentForm={formHandlers.assignmentForm} setAssignmentForm={formHandlers.setAssignmentForm} handleCreateAssignment={(e) => formHandlers.handleCreateAssignment(e, subjects, classes)} />}
@@ -265,6 +293,15 @@ function App() {
       
       <div data-puter-ai><PuterAI /></div>
       {showCalculator && <CalculatorApp isOpen={showCalculator} onClose={() => setShowCalculator(false)} />}
+      
+      <LoadingModal open={modal.loading} message={modal.loadingMessage} />
+      <StatusModal 
+        open={modal.status.open} 
+        onOpenChange={modal.closeStatus}
+        type={modal.status.type}
+        title={modal.status.title}
+        message={modal.status.message}
+      />
     </MainLayout>
   )
 }
