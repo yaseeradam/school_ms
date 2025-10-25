@@ -1,4 +1,17 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+
+// Limits to prevent localStorage from growing unbounded
+const STORAGE_LIMITS = {
+  timetables: 50,
+  exams: 30,
+  fees: 100,
+  homework: 50,
+  books: 100,
+  events: 50,
+  behaviors: 100,
+  routes: 20,
+  healthRecords: 100
+}
 
 export function useNewFeatures(user, token, apiCall, loadDashboardData, modal) {
   const [timetables, setTimetables] = useState([])
@@ -11,31 +24,38 @@ export function useNewFeatures(user, token, apiCall, loadDashboardData, modal) {
   const [routes, setRoutes] = useState([])
   const [healthRecords, setHealthRecords] = useState([])
 
-  useEffect(() => {
-    if (user && token && user.role === 'school_admin') {
-      loadAllData()
-    }
-  }, [user, token])
-
-  useEffect(() => {
-    if (user && token && user.role === 'school_admin' && timetables.length === 0) {
-      loadAllData()
+  // Helper to safely store with limits
+  const safeSetStorage = useCallback((key, data) => {
+    try {
+      const limit = STORAGE_LIMITS[key] || 100
+      const limitedData = data.slice(-limit) // Keep only most recent items
+      localStorage.setItem(key, JSON.stringify(limitedData))
+      return limitedData
+    } catch (error) {
+      console.error(`Error storing ${key}:`, error)
+      // If storage is full, clear old data
+      if (error.name === 'QuotaExceededError') {
+        const limitedData = data.slice(-Math.floor(limit / 2))
+        localStorage.setItem(key, JSON.stringify(limitedData))
+        return limitedData
+      }
+      return data
     }
   }, [])
 
-  const loadAllData = async () => {
+  const loadAllData = useCallback(() => {
     try {
-      // Load from localStorage as fallback
+      // Load from localStorage with limits
       const stored = {
-        timetables: JSON.parse(localStorage.getItem('timetables') || '[]'),
-        exams: JSON.parse(localStorage.getItem('exams') || '[]'),
-        fees: JSON.parse(localStorage.getItem('fees') || '[]'),
-        homework: JSON.parse(localStorage.getItem('homework') || '[]'),
-        books: JSON.parse(localStorage.getItem('books') || '[]'),
-        events: JSON.parse(localStorage.getItem('events') || '[]'),
-        behaviors: JSON.parse(localStorage.getItem('behaviors') || '[]'),
-        routes: JSON.parse(localStorage.getItem('routes') || '[]'),
-        healthRecords: JSON.parse(localStorage.getItem('healthRecords') || '[]')
+        timetables: JSON.parse(localStorage.getItem('timetables') || '[]').slice(-STORAGE_LIMITS.timetables),
+        exams: JSON.parse(localStorage.getItem('exams') || '[]').slice(-STORAGE_LIMITS.exams),
+        fees: JSON.parse(localStorage.getItem('fees') || '[]').slice(-STORAGE_LIMITS.fees),
+        homework: JSON.parse(localStorage.getItem('homework') || '[]').slice(-STORAGE_LIMITS.homework),
+        books: JSON.parse(localStorage.getItem('books') || '[]').slice(-STORAGE_LIMITS.books),
+        events: JSON.parse(localStorage.getItem('events') || '[]').slice(-STORAGE_LIMITS.events),
+        behaviors: JSON.parse(localStorage.getItem('behaviors') || '[]').slice(-STORAGE_LIMITS.behaviors),
+        routes: JSON.parse(localStorage.getItem('routes') || '[]').slice(-STORAGE_LIMITS.routes),
+        healthRecords: JSON.parse(localStorage.getItem('healthRecords') || '[]').slice(-STORAGE_LIMITS.healthRecords)
       }
       setTimetables(stored.timetables)
       setExams(stored.exams)
@@ -46,8 +66,18 @@ export function useNewFeatures(user, token, apiCall, loadDashboardData, modal) {
       setBehaviors(stored.behaviors)
       setRoutes(stored.routes)
       setHealthRecords(stored.healthRecords)
-    } catch (error) {}
-  }
+    } catch (error) {
+      console.error('Error loading data:', error)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (user && token && user.role === 'school_admin') {
+      loadAllData()
+    }
+  }, [user, token, loadAllData])
+
+
 
   const handleTimetableSubmit = async (e, form, setShowModal) => {
     e.preventDefault()
@@ -59,8 +89,8 @@ export function useNewFeatures(user, token, apiCall, loadDashboardData, modal) {
     } else {
       updated = [...timetables, newData]
     }
-    setTimetables(updated)
-    localStorage.setItem('timetables', JSON.stringify(updated))
+    const limited = safeSetStorage('timetables', updated)
+    setTimetables(limited)
     modal?.showSuccess('Timetable Saved', 'Timetable updated successfully!')
     setShowModal(false)
   }
@@ -68,8 +98,8 @@ export function useNewFeatures(user, token, apiCall, loadDashboardData, modal) {
   const handleTimetableDelete = async (id) => {
     modal?.showLoading('Deleting period...')
     const updated = timetables.filter(t => t._id !== id)
+    safeSetStorage('timetables', updated)
     setTimetables(updated)
-    localStorage.setItem('timetables', JSON.stringify(updated))
     modal?.showSuccess('Period Deleted', 'Period deleted successfully!')
   }
 
@@ -83,8 +113,8 @@ export function useNewFeatures(user, token, apiCall, loadDashboardData, modal) {
     } else {
       updated = [...exams, newData]
     }
-    setExams(updated)
-    localStorage.setItem('exams', JSON.stringify(updated))
+    const limited = safeSetStorage('exams', updated)
+    setExams(limited)
     modal?.showSuccess('Exam Saved', 'Exam saved successfully!')
     setShowModal(false)
   }
@@ -98,8 +128,8 @@ export function useNewFeatures(user, token, apiCall, loadDashboardData, modal) {
       }
       return ex
     })
-    setExams(updated)
-    localStorage.setItem('exams', JSON.stringify(updated))
+    const limited = safeSetStorage('exams', updated)
+    setExams(limited)
     modal?.showSuccess('Grade Added', 'Grade added successfully!')
     setShowGradeModal(false)
   }
@@ -109,8 +139,8 @@ export function useNewFeatures(user, token, apiCall, loadDashboardData, modal) {
     modal?.showLoading('Adding fee...')
     const newData = { ...form, _id: Date.now().toString(), paid: 0 }
     const updated = [...fees, newData]
-    setFees(updated)
-    localStorage.setItem('fees', JSON.stringify(updated))
+    const limited = safeSetStorage('fees', updated)
+    setFees(limited)
     modal?.showSuccess('Fee Added', 'Fee added successfully!')
     setShowModal(false)
   }
@@ -119,8 +149,8 @@ export function useNewFeatures(user, token, apiCall, loadDashboardData, modal) {
     e.preventDefault()
     modal?.showLoading('Recording payment...')
     const updated = fees.map(f => f.studentId === paymentForm.studentId ? { ...f, paid: (f.paid || 0) + parseFloat(paymentForm.amount) } : f)
-    setFees(updated)
-    localStorage.setItem('fees', JSON.stringify(updated))
+    const limited = safeSetStorage('fees', updated)
+    setFees(limited)
     modal?.showSuccess('Payment Recorded', 'Payment recorded successfully!')
     setShowPaymentModal(false)
   }
@@ -130,8 +160,8 @@ export function useNewFeatures(user, token, apiCall, loadDashboardData, modal) {
     modal?.showLoading('Assigning homework...')
     const newData = { ...form, _id: Date.now().toString(), submissions: [] }
     const updated = [...homework, newData]
-    setHomework(updated)
-    localStorage.setItem('homework', JSON.stringify(updated))
+    const limited = safeSetStorage('homework', updated)
+    setHomework(limited)
     modal?.showSuccess('Homework Assigned', 'Homework assigned successfully!')
     setShowModal(false)
   }
@@ -141,8 +171,8 @@ export function useNewFeatures(user, token, apiCall, loadDashboardData, modal) {
     modal?.showLoading('Adding book...')
     const newData = { ...form, _id: Date.now().toString(), issuedTo: [] }
     const updated = [...books, newData]
-    setBooks(updated)
-    localStorage.setItem('books', JSON.stringify(updated))
+    const limited = safeSetStorage('books', updated)
+    setBooks(limited)
     modal?.showSuccess('Book Added', 'Book added successfully!')
     setShowModal(false)
   }
@@ -156,8 +186,8 @@ export function useNewFeatures(user, token, apiCall, loadDashboardData, modal) {
       }
       return b
     })
-    setBooks(updated)
-    localStorage.setItem('books', JSON.stringify(updated))
+    const limited = safeSetStorage('books', updated)
+    setBooks(limited)
     modal?.showSuccess('Book Issued', 'Book issued successfully!')
     setShowIssueModal(false)
   }
@@ -170,8 +200,8 @@ export function useNewFeatures(user, token, apiCall, loadDashboardData, modal) {
       }
       return b
     })
-    setBooks(updated)
-    localStorage.setItem('books', JSON.stringify(updated))
+    const limited = safeSetStorage('books', updated)
+    setBooks(limited)
     modal?.showSuccess('Book Returned', 'Book returned successfully!')
   }
 
@@ -185,8 +215,8 @@ export function useNewFeatures(user, token, apiCall, loadDashboardData, modal) {
     } else {
       updated = [...events, newData]
     }
-    setEvents(updated)
-    localStorage.setItem('events', JSON.stringify(updated))
+    const limited = safeSetStorage('events', updated)
+    setEvents(limited)
     modal?.showSuccess('Event Saved', 'Event saved successfully!')
     setShowModal(false)
   }
@@ -194,8 +224,8 @@ export function useNewFeatures(user, token, apiCall, loadDashboardData, modal) {
   const handleEventDelete = async (id) => {
     modal?.showLoading('Deleting event...')
     const updated = events.filter(e => e._id !== id)
+    safeSetStorage('events', updated)
     setEvents(updated)
-    localStorage.setItem('events', JSON.stringify(updated))
     modal?.showSuccess('Event Deleted', 'Event deleted successfully!')
   }
 
@@ -204,8 +234,8 @@ export function useNewFeatures(user, token, apiCall, loadDashboardData, modal) {
     modal?.showLoading('Recording behavior...')
     const newData = { ...form, _id: Date.now().toString() }
     const updated = [...behaviors, newData]
-    setBehaviors(updated)
-    localStorage.setItem('behaviors', JSON.stringify(updated))
+    const limited = safeSetStorage('behaviors', updated)
+    setBehaviors(limited)
     modal?.showSuccess('Behavior Recorded', 'Behavior recorded successfully!')
     setShowModal(false)
   }
@@ -215,8 +245,8 @@ export function useNewFeatures(user, token, apiCall, loadDashboardData, modal) {
     modal?.showLoading('Adding route...')
     const newData = { ...form, _id: Date.now().toString() }
     const updated = [...routes, newData]
-    setRoutes(updated)
-    localStorage.setItem('routes', JSON.stringify(updated))
+    const limited = safeSetStorage('routes', updated)
+    setRoutes(limited)
     modal?.showSuccess('Route Added', 'Route added successfully!')
     setShowModal(false)
   }
@@ -239,8 +269,8 @@ export function useNewFeatures(user, token, apiCall, loadDashboardData, modal) {
     } else {
       updated = [...healthRecords, newData]
     }
-    setHealthRecords(updated)
-    localStorage.setItem('healthRecords', JSON.stringify(updated))
+    const limited = safeSetStorage('healthRecords', updated)
+    setHealthRecords(limited)
     modal?.showSuccess('Health Record Saved', 'Health record saved successfully!')
     setShowModal(false)
   }

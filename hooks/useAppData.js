@@ -14,7 +14,7 @@ export function useAppData(user, token) {
   const [schools, setSchools] = useState([])
   const isMountedRef = useRef(true)
 
-  const apiCall = async (endpoint, options = {}) => {
+  const apiCall = useCallback(async (endpoint, options = {}) => {
     try {
       const response = await fetch(`/api/${endpoint}`, {
         headers: {
@@ -41,7 +41,7 @@ export function useAppData(user, token) {
       }
       throw error
     }
-  }
+  }, [token])
 
   const loadDashboardData = useCallback(async () => {
     if (!isMountedRef.current) return
@@ -93,26 +93,30 @@ export function useAppData(user, token) {
     }
   }, [user?.role, apiCall])
 
-  const loadNotifications = async () => {
+  const loadNotifications = useCallback(async () => {
+    if (!isMountedRef.current) return
     try {
       const notificationsData = await apiCall('notifications')
-      setNotifications(notificationsData)
+      if (isMountedRef.current) setNotifications(notificationsData)
     } catch (error) {
       // Error already handled
     }
-  }
+  }, [apiCall])
 
-  const loadTodayAttendance = async () => {
+  const loadTodayAttendance = useCallback(async () => {
+    if (!isMountedRef.current) return
     try {
       const today = new Date().toISOString().split('T')[0]
       const records = await apiCall(`attendance?date=${today}`)
-      setAttendance(records)
+      if (isMountedRef.current) setAttendance(records)
     } catch (error) {
       console.error('Error loading today attendance:', error)
     }
-  }
+  }, [apiCall])
 
   useEffect(() => {
+    isMountedRef.current = true
+    
     if (user && token) {
       loadDashboardData()
       loadNotifications()
@@ -120,7 +124,11 @@ export function useAppData(user, token) {
         loadTodayAttendance()
       }
     }
-  }, [user, token])
+    
+    return () => {
+      isMountedRef.current = false
+    }
+  }, [user, token, loadDashboardData, loadNotifications, loadTodayAttendance])
 
   return {
     stats, students, teachers, parents, classes, subjects, assignments, attendance, notifications, schools,
